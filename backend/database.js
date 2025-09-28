@@ -23,7 +23,14 @@ async function connectToDatabase() {
       return null
     }
 
-    client = new MongoClient(MONGODB_URI)
+    client = new MongoClient(MONGODB_URI, {
+      ssl: true,
+      sslValidate: false,
+      useUnifiedTopology: true,
+      useNewUrlParser: true,
+      serverSelectionTimeoutMS: 5000,
+      connectTimeoutMS: 10000,
+    })
     await client.connect()
     db = client.db(DB_NAME)
     console.log('✅ Connected to MongoDB')
