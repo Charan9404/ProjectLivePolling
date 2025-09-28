@@ -194,14 +194,16 @@ io.on("connection", (socket) => {
     console.log(`Time up for poll ${pollCode}`)
     
     // Save poll to history
-    await savePollToHistory(poll)
+    await savePollToHistory(poll, pollCode)
   })
 
   // Helper function to save poll to history
-  async function savePollToHistory(poll) {
+  async function savePollToHistory(poll, pollCode) {
     try {
-      await savePollHistory(poll)
-      console.log(`✅ Poll ${poll.pollCode || 'unknown'} saved to history`)
+      // Add pollCode to the poll data
+      const pollData = { ...poll, pollCode }
+      await savePollHistory(pollData)
+      console.log(`✅ Poll ${pollCode} saved to history`)
     } catch (error) {
       console.error(`❌ Failed to save poll to history:`, error)
     }
@@ -304,7 +306,7 @@ io.on("connection", (socket) => {
         
         // Save poll if teacher disconnected or if poll has responses
         if (poll.teacherId === socket.id || Object.keys(poll.answers).length > 0) {
-          await savePollToHistory(poll)
+          await savePollToHistory(poll, pollCode)
         }
       }
     }
