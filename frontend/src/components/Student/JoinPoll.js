@@ -97,7 +97,7 @@ export default function JoinPoll() {
             border: "1px solid #81e6d9",
           }}
         >
-          <div style={{ fontWeight: "600", color: "#234e52" }}>✅ Connected to Poll: {code}</div>
+          <div style={{ fontWeight: "600", color: "#234e52" }}>Connected to Poll: {code}</div>
           <div style={{ fontSize: "0.9rem", color: "#2c7a7b", marginTop: "4px" }}>
             {Object.keys(students).length} student{Object.keys(students).length !== 1 ? "s" : ""} joined
           </div>
@@ -120,11 +120,11 @@ export default function JoinPoll() {
 
   return (
     <div>
-      {error && <div className="error">❌ {error}</div>}
+      {error && <div className="error">{error}</div>}
 
       <form onSubmit={handleJoin}>
         <div className="form-group">
-          <label className="label">👤 Your Name</label>
+          <label className="label">Your Name</label>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -135,7 +135,7 @@ export default function JoinPoll() {
         </div>
 
         <div className="form-group">
-          <label className="label">🔢 Poll Code</label>
+          <label className="label">Poll Code</label>
           <input
             value={code}
             onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
@@ -160,13 +160,13 @@ export default function JoinPoll() {
           disabled={isJoining}
           style={{ width: "100%", fontSize: "1.1rem", padding: "16px" }}
         >
-          {isJoining ? "🔄 Joining..." : "🎯 Join Poll"}
+          {isJoining ? "Joining..." : "Join Poll"}
         </button>
       </form>
 
       <div style={{ marginTop: "2rem", padding: "1rem", background: "#f7fafc", borderRadius: "8px" }}>
         <h4 style={{ fontSize: "1rem", fontWeight: "600", marginBottom: "0.5rem", color: "#4a5568" }}>
-          💡 How to join:
+          How to join:
         </h4>
         <ol style={{ fontSize: "0.9rem", color: "#718096", paddingLeft: "1rem" }}>
           <li>Enter your name (this will be visible to others)</li>

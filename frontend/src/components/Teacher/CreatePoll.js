@@ -69,11 +69,11 @@ export default function CreatePoll({ onCreated }) {
 
   return (
     <div>
-      {error && <div className="error">❌ {error}</div>}
+      {error && <div className="error">{error}</div>}
 
       <form onSubmit={submit}>
         <div className="form-group">
-          <label className="label">📝 Poll Question</label>
+          <label className="label">Poll Question</label>
           <input
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
@@ -85,7 +85,7 @@ export default function CreatePoll({ onCreated }) {
         </div>
 
         <div className="form-group">
-          <label className="label">⏱️ Time Limit (seconds)</label>
+          <label className="label">Time Limit (seconds)</label>
           <select value={duration} onChange={(e) => setDuration(Number(e.target.value))} className="input">
             <option value={30}>30 seconds</option>
             <option value={60}>1 minute</option>
@@ -96,7 +96,7 @@ export default function CreatePoll({ onCreated }) {
         </div>
 
         <div className="form-group">
-          <label className="label">📊 Answer Options</label>
+          <label className="label">Answer Options</label>
           {options.map((opt, i) => (
             <div key={i} className="option-row">
               <input
@@ -138,14 +138,14 @@ export default function CreatePoll({ onCreated }) {
           disabled={isCreating}
           style={{ width: "100%", fontSize: "1.1rem", padding: "16px" }}
         >
-          {isCreating ? "🔄 Creating Poll..." : "🚀 Create Poll & Start"}
+          {isCreating ? "Creating Poll..." : "Create Poll & Start"}
         </button>
       </form>
 
       {pollCode && (
         <div className="poll-code">
           <div style={{ marginBottom: "8px", fontWeight: "600", color: "#4a5568", fontSize: "1.1rem" }}>
-            🎉 Poll Created Successfully!
+            Poll Created Successfully!
           </div>
           <div style={{ marginBottom: "12px", color: "#718096" }}>Share this code with your students:</div>
           <div className="poll-code-number">{pollCode}</div>

@@ -118,19 +118,19 @@ Deploy to Vercel, Netlify, or any Next.js compatible platform. Update the socket
 
 ## Assignment Requirements Checklist
 
-✅ **Must-Have Requirements**
+**Must-Have Requirements**
 - [x] Functional system with all core features working
 - [x] Teacher can create polls and students can answer them
 - [x] Both teacher and student can view poll results
 - [x] Real-time updates with Socket.IO
 - [x] Modern UI following design principles
 
-✅ **Good to Have**
+**Good to Have**
 - [x] Configurable poll time limit by teacher
 - [x] Option for teacher to remove a student
 - [x] Well-designed user interface with purple theme
 
-✅ **Technical Stack**
+**Technical Stack**
 - [x] Frontend: React (Next.js)
 - [x] Backend: Express.js with Socket.io
 - [x] Real-time polling functionality

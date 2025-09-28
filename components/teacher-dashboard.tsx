@@ -85,7 +85,7 @@ export default function TeacherDashboard({ onBack }: TeacherDashboardProps) {
     })
 
     socket.on("update_results", ({ answers }) => {
-      console.log("📊 Teacher received update_results:", answers)
+      console.log("Teacher received update_results:", answers)
       setPollState((prev) => ({ ...prev, answers, showResults: true }))
     })
 

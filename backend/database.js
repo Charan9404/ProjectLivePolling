@@ -7,7 +7,7 @@ let MONGODB_URI = process.env.MONGODB_URI || process.env.MONGO_URI || 'mongodb:/
 if (MONGODB_URI.includes('mongodb+srv://')) {
   // Use the exact format recommended by MongoDB Atlas
   // Don't modify the connection string - use it as provided
-  console.log('📝 Using MongoDB Atlas connection string')
+    console.log('Using MongoDB Atlas connection string')
 }
 const DB_NAME = 'live-polling'
 
@@ -22,16 +22,16 @@ async function connectToDatabase() {
   try {
     // Check if MongoDB URI is provided
     if (!MONGODB_URI || MONGODB_URI === 'mongodb://localhost:27017/live-polling') {
-      console.log('⚠️  MongoDB not configured - Poll history will be disabled')
-      console.log('📝 To enable poll history:')
+      console.log('MongoDB not configured - Poll history will be disabled')
+      console.log('To enable poll history:')
       console.log('   1. Create MongoDB Atlas account at https://www.mongodb.com/atlas')
       console.log('   2. Get your connection string')
       console.log('   3. Set MONGODB_URI environment variable')
       return null
     }
 
-    console.log('🔗 Attempting to connect to MongoDB...')
-    console.log('📍 MongoDB URI:', MONGODB_URI.replace(/\/\/.*@/, '//***:***@')) // Hide credentials
+    console.log('Attempting to connect to MongoDB...')
+    console.log('MongoDB URI:', MONGODB_URI.replace(/\/\/.*@/, '//***:***@')) // Hide credentials
 
     client = new MongoClient(MONGODB_URI, {
       serverSelectionTimeoutMS: 30000,
@@ -47,18 +47,18 @@ async function connectToDatabase() {
     await client.db(DB_NAME).admin().ping()
     
     db = client.db(DB_NAME)
-    console.log('✅ Connected to MongoDB successfully')
-    console.log('📊 Database:', DB_NAME)
+    console.log('Connected to MongoDB successfully')
+    console.log('Database:', DB_NAME)
     return db
   } catch (error) {
-    console.error('❌ MongoDB connection error:', error.message)
-    console.error('🔍 Error details:', {
+    console.error('MongoDB connection error:', error.message)
+    console.error('Error details:', {
       name: error.name,
       code: error.code,
       codeName: error.codeName
     })
-    console.log('⚠️  Poll history will be disabled until MongoDB is configured')
-    console.log('📝 App will continue to work without poll history storage')
+    console.log('Poll history will be disabled until MongoDB is configured')
+    console.log('App will continue to work without poll history storage')
     return null
   }
 }
@@ -93,7 +93,7 @@ async function savePollHistory(pollData) {
   try {
     const db = await getDatabase()
     if (!db) {
-      console.log('⚠️  MongoDB not available - skipping poll history save')
+      console.log('MongoDB not available - skipping poll history save')
       return null
     }
     
@@ -117,10 +117,10 @@ async function savePollHistory(pollData) {
     }
     
     const result = await collection.insertOne(historyEntry)
-    console.log('✅ Poll saved to history:', result.insertedId)
+    console.log('Poll saved to history:', result.insertedId)
     return result.insertedId
   } catch (error) {
-    console.error('❌ Error saving poll history:', error)
+    console.error('Error saving poll history:', error)
     return null
   }
 }
@@ -130,7 +130,7 @@ async function getPollHistory(teacherId, limit = 20) {
   try {
     const db = await getDatabase()
     if (!db) {
-      console.log('⚠️  MongoDB not available - returning empty history')
+      console.log('MongoDB not available - returning empty history')
       return []
     }
     
@@ -143,10 +143,10 @@ async function getPollHistory(teacherId, limit = 20) {
       .limit(limit)
       .toArray()
     
-    console.log(`✅ Retrieved ${history.length} polls for teacher ${teacherId || 'all'}`)
+    console.log(`Retrieved ${history.length} polls for teacher ${teacherId || 'all'}`)
     return history
   } catch (error) {
-    console.error('❌ Error retrieving poll history:', error)
+    console.error('Error retrieving poll history:', error)
     return []
   }
 }
@@ -156,7 +156,7 @@ async function getPollDetails(pollCode, teacherId) {
   try {
     const db = await getDatabase()
     if (!db) {
-      console.log('⚠️  MongoDB not available - returning null')
+      console.log('MongoDB not available - returning null')
       return null
     }
     
@@ -168,14 +168,14 @@ async function getPollDetails(pollCode, teacherId) {
     })
     
     if (poll) {
-      console.log(`✅ Retrieved poll details for ${pollCode}`)
+      console.log(`Retrieved poll details for ${pollCode}`)
     } else {
-      console.log(`❌ Poll not found: ${pollCode}`)
+      console.log(`Poll not found: ${pollCode}`)
     }
     
     return poll
   } catch (error) {
-    console.error('❌ Error retrieving poll details:', error)
+    console.error('Error retrieving poll details:', error)
     return null
   }
 }
@@ -185,7 +185,7 @@ async function getPollStats(teacherId) {
   try {
     const db = await getDatabase()
     if (!db) {
-      console.log('⚠️  MongoDB not available - returning empty stats')
+      console.log('MongoDB not available - returning empty stats')
       return {
         totalPolls: 0,
         totalResponses: 0,
@@ -216,7 +216,7 @@ async function getPollStats(teacherId) {
       totalStudents: 0
     }
   } catch (error) {
-    console.error('❌ Error retrieving poll stats:', error)
+    console.error('Error retrieving poll stats:', error)
     return {
       totalPolls: 0,
       totalResponses: 0,

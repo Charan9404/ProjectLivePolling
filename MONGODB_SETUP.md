@@ -1,9 +1,9 @@
 # MongoDB Setup for Poll History
 
 ## Current Status
-- ✅ MongoDB integration code is complete
-- ❌ MongoDB connection is not configured
-- ⚠️ Polls are only stored in memory (lost on server restart)
+- MongoDB integration code is complete
+- MongoDB connection is not configured
+- Polls are only stored in memory (lost on server restart)
 
 ## To Enable Persistent Storage:
 

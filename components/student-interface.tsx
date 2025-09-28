@@ -91,9 +91,9 @@ export default function StudentInterface({ onBack }: StudentInterfaceProps) {
     })
 
     socket.on("new_question", ({ question, options, duration, startTime, messages }) => {
-      console.log("🆕 Student received new_question:", { question, options, duration, startTime, messages })
+      console.log("Student received new_question:", { question, options, duration, startTime, messages })
       setState((prev) => {
-        console.log("🔄 Student state before new question:", { 
+        console.log("Student state before new question:", { 
           hasSubmitted: prev.hasSubmitted, 
           selectedAnswer: prev.selectedAnswer, 
           results: prev.results 
@@ -110,7 +110,7 @@ export default function StudentInterface({ onBack }: StudentInterfaceProps) {
           showTimer: true,
           messages: messages || prev.messages || [],
         }
-        console.log("✅ Student state after new question:", { 
+        console.log("Student state after new question:", { 
           hasSubmitted: newState.hasSubmitted, 
           selectedAnswer: newState.selectedAnswer, 
           results: newState.results 
@@ -128,7 +128,7 @@ export default function StudentInterface({ onBack }: StudentInterfaceProps) {
     })
 
     socket.on("chat_message", ({ message }) => {
-      console.log("💬 Student received chat message:", { 
+      console.log("Student received chat message:", { 
         message, 
         studentName: state.name, 
         messageFrom: message.from, 
@@ -140,14 +140,14 @@ export default function StudentInterface({ onBack }: StudentInterfaceProps) {
       // Students see teacher messages and their own messages
       // Temporarily show all messages for debugging
       if (message.from === "teacher" || (message.from === "student" && message.name === state.name) || true) {
-        console.log("✅ Adding message to student chat")
+        console.log("Adding message to student chat")
         setState((prev) => {
           const newMessages = [...(prev.messages || []), message]
           console.log("Updated messages array:", newMessages)
           return { ...prev, messages: newMessages }
         })
       } else {
-        console.log("❌ Message filtered out - not teacher and not own message")
+        console.log("Message filtered out - not teacher and not own message")
       }
     })
 
@@ -195,7 +195,7 @@ export default function StudentInterface({ onBack }: StudentInterfaceProps) {
   const submitAnswer = () => {
     if (!state.selectedAnswer || state.hasSubmitted) return
 
-    console.log("🎯 Student submitting answer:", {
+    console.log("Student submitting answer:", {
       pollCode: state.pollCode,
       studentName: state.name,
       answer: state.selectedAnswer,
@@ -474,7 +474,7 @@ export default function StudentInterface({ onBack }: StudentInterfaceProps) {
                                   )}
                                   {isCorrectAndSelected && (
                                     <span className="px-2 py-1 text-xs font-medium bg-emerald-100 text-emerald-800 rounded-full">
-                                      🎉 Right!
+                                      Right!
                                     </span>
                                   )}
                                 </div>
@@ -511,11 +511,11 @@ export default function StudentInterface({ onBack }: StudentInterfaceProps) {
                         <div className="ml-auto flex gap-2">
                           {state.options.find(opt => opt.text === state.selectedAnswer)?.isCorrect ? (
                             <span className="px-2 py-1 text-xs font-medium bg-emerald-100 text-emerald-800 rounded-full">
-                              🎉 Correct!
+                              Correct!
                             </span>
                           ) : (
                             <span className="px-2 py-1 text-xs font-medium bg-red-100 text-red-800 rounded-full">
-                              ❌ Incorrect
+                              Incorrect
                             </span>
                           )}
                         </div>

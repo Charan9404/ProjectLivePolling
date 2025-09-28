@@ -49,8 +49,8 @@ setInterval(() => {
 }, 1000)
 
 io.on("connection", (socket) => {
-  console.log("✅ New connection:", socket.id)
-  console.log("✅ Connection origin:", socket.handshake.headers.origin)
+  console.log("New connection:", socket.id)
+  console.log("Connection origin:", socket.handshake.headers.origin)
 
   socket.on("teacher_create_poll", ({ question, options, duration, expectedResponses }) => {
     try {
@@ -160,31 +160,31 @@ io.on("connection", (socket) => {
   })
 
   socket.on("submit_answer", ({ pollCode, studentName, answer }) => {
-    console.log(`📝 Received answer submission:`, { pollCode, studentName, answer })
+    console.log(`Received answer submission:`, { pollCode, studentName, answer })
     
     const poll = getPoll(pollCode)
     if (!poll) {
-      console.log(`❌ Poll not found: ${pollCode}`)
+      console.log(`Poll not found: ${pollCode}`)
       return socket.emit("error", "Poll not found")
     }
 
     if (!poll.isActive) {
-      console.log(`❌ Poll not active: ${pollCode}`)
+      console.log(`Poll not active: ${pollCode}`)
       return socket.emit("error", "Poll is not active")
     }
 
     if (poll.students[socket.id] !== studentName) {
-      console.log(`❌ Unauthorized: ${studentName} not found in students`)
+      console.log(`Unauthorized: ${studentName} not found in students`)
       return socket.emit("error", "Unauthorized")
     }
 
     if (!poll.options.some(option => option.text === answer)) {
-      console.log(`❌ Invalid answer: ${answer} not in options:`, poll.options.map(o => o.text))
+      console.log(`Invalid answer: ${answer} not in options:`, poll.options.map(o => o.text))
       return socket.emit("error", "Invalid answer option")
     }
 
     submitAnswer(pollCode, studentName, answer)
-    console.log(`✅ Answer submitted successfully. Current answers:`, poll.answers)
+    console.log(`Answer submitted successfully. Current answers:`, poll.answers)
 
     // Check if all expected students have answered
     const currentAnswers = Object.keys(poll.answers).length
@@ -195,7 +195,7 @@ io.on("connection", (socket) => {
     const allJoinedAnswered = joinedStudents > 0 && currentAnswers >= joinedStudents
     
     if (poll.isActive && (allExpectedAnswered || allJoinedAnswered)) {
-      console.log(`🎯 All students have answered! Ending poll ${pollCode} automatically`)
+      console.log(`All students have answered! Ending poll ${pollCode} automatically`)
       
       // End the poll automatically
       poll.isActive = false
@@ -208,7 +208,7 @@ io.on("connection", (socket) => {
       io.to(pollCode).emit("update_results", { answers: poll.answers })
     }
     
-    console.log(`📡 Broadcasted results to poll ${pollCode}`)
+    console.log(`Broadcasted results to poll ${pollCode}`)
   })
 
   socket.on("time_up", async ({ pollCode }) => {
@@ -231,22 +231,22 @@ io.on("connection", (socket) => {
       // Add pollCode to the poll data
       const pollData = { ...poll, pollCode }
       await savePollHistory(pollData)
-      console.log(`✅ Poll ${pollCode} saved to history`)
+      console.log(`Poll ${pollCode} saved to history`)
     } catch (error) {
-      console.error(`❌ Failed to save poll to history:`, error)
+      console.error(`Failed to save poll to history:`, error)
     }
   }
 
   socket.on("teacher_subscribe", ({ pollCode }) => {
-    console.log(`👨‍🏫 Teacher subscribing to poll: ${pollCode}`)
+    console.log(`Teacher subscribing to poll: ${pollCode}`)
     const poll = getPoll(pollCode)
     if (!poll || poll.teacherId !== socket.id) {
-      console.log(`❌ Teacher subscription failed: poll not found or unauthorized`)
+      console.log(`Teacher subscription failed: poll not found or unauthorized`)
       return
     }
 
     socket.join(pollCode)
-    console.log(`✅ Teacher joined poll room: ${pollCode}`)
+    console.log(`Teacher joined poll room: ${pollCode}`)
     socket.emit("poll_state", {
       question: poll.question,
       options: poll.options,
@@ -258,7 +258,7 @@ io.on("connection", (socket) => {
       isActive: poll.isActive,
       messages: poll.messages || [],
     })
-    console.log(`📤 Sent poll state to teacher:`, { answers: poll.answers, students: poll.students })
+    console.log(`Sent poll state to teacher:`, { answers: poll.answers, students: poll.students })
   })
 
   // Chat: teacher -> everyone
@@ -274,34 +274,34 @@ io.on("connection", (socket) => {
 
   // Chat: student -> teacher only
   socket.on("student_send_message", ({ pollCode, text }) => {
-    console.log(`💬 Student sending message:`, { pollCode, text })
+    console.log(`Student sending message:`, { pollCode, text })
     const poll = getPoll(pollCode)
     if (!poll || !text?.trim()) {
-      console.log(`❌ Invalid poll or empty text`)
+      console.log(`Invalid poll or empty text`)
       return
     }
 
     const studentName = poll.students[socket.id]
     if (!studentName) {
-      console.log(`❌ Student not found in poll`)
+      console.log(`Student not found in poll`)
       return
     }
 
     const message = { id: Date.now().toString(), from: "student", name: studentName, text: text.trim(), ts: Date.now() }
     poll.messages = poll.messages || []
     poll.messages.push(message)
-    console.log(`✅ Message created:`, message)
+    console.log(`Message created:`, message)
 
     // send to teacher socket and back to student
     const teacherSocket = io.sockets.sockets.get(poll.teacherId)
     if (teacherSocket) {
       teacherSocket.emit("chat_message", { message })
-      console.log(`📤 Sent to teacher: ${poll.teacherId}`)
+      console.log(`Sent to teacher: ${poll.teacherId}`)
     }
     
     // Also send back to the student so they can see their own message
     socket.emit("chat_message", { message })
-    console.log(`📤 Sent back to student: ${socket.id}`)
+    console.log(`Sent back to student: ${socket.id}`)
   })
 
   socket.on("remove_student", ({ pollCode, studentId }) => {
@@ -343,7 +343,7 @@ io.on("connection", (socket) => {
 
 app.get("/", (req, res) => {
   res.json({
-    message: "🚀 Live Polling Backend is running!",
+    message: "Live Polling Backend is running!",
     timestamp: new Date().toISOString(),
     connections: io.engine.clientsCount,
   })
@@ -420,6 +420,6 @@ app.get("/api/poll/:code", (req, res) => {
 
 const PORT = process.env.PORT || 5005
 server.listen(PORT, () => {
-  console.log(`✅ Live Polling Backend running on http://localhost:${PORT}`)
-  console.log(`✅ Socket.IO server ready for connections`)
+  console.log(`Live Polling Backend running on http://localhost:${PORT}`)
+  console.log(`Socket.IO server ready for connections`)
 })

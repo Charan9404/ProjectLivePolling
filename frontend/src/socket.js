@@ -16,15 +16,15 @@ const socket = io(SOCKET_URL, {
 })
 
 socket.on("connect", () => {
-  console.log("✅ Connected to server:", socket.id)
+  console.log("Connected to server:", socket.id)
 })
 
 socket.on("disconnect", (reason) => {
-  console.log("❌ Disconnected from server:", reason)
+  console.log("Disconnected from server:", reason)
 })
 
 socket.on("connect_error", (error) => {
-  console.error("❌ Connection error:", error)
+  console.error("Connection error:", error)
 })
 
 export { socket }
