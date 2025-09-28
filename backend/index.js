@@ -90,11 +90,20 @@ io.on("connection", (socket) => {
     poll.duration = duration
     poll.isActive = true
 
+    // Send new_question to all clients in the room (including teacher)
     io.to(pollCode).emit("new_question", {
       question: poll.question,
       options: poll.options,
       duration,
+      startTime: poll.startTime,
     })
+    
+    // Also send the startTime back to the teacher specifically
+    socket.emit("question_started", {
+      startTime: poll.startTime,
+      duration,
+    })
+    
     console.log(`New question started in poll ${pollCode}`)
   })
 
@@ -121,6 +130,7 @@ io.on("connection", (socket) => {
       question: poll.question,
       options: poll.options,
       duration: poll.duration,
+      startTime: poll.startTime,
     })
 
     console.log(`Student ${cleanName} joined poll ${pollCode}`)
@@ -168,6 +178,7 @@ io.on("connection", (socket) => {
       answers: poll.answers,
       students: poll.students,
       duration: poll.duration,
+      startTime: poll.startTime,
       isActive: poll.isActive,
     })
   })

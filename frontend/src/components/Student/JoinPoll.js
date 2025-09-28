@@ -10,6 +10,7 @@ export default function JoinPoll() {
   const [code, setCode] = useState("")
   const [joined, setJoined] = useState(false)
   const [poll, setPoll] = useState(null)
+  const [startTime, setStartTime] = useState(null)
   const [hasSubmitted, setHasSubmitted] = useState(false)
   const [results, setResults] = useState(null)
   const [isJoining, setIsJoining] = useState(false)
@@ -20,8 +21,9 @@ export default function JoinPoll() {
     const savedName = localStorage.getItem("poll_student_name")
     if (savedName) setName(savedName)
 
-    socket.on("joined_poll", ({ question, options, duration }) => {
+    socket.on("joined_poll", ({ question, options, duration, startTime }) => {
       setPoll({ question, options, duration })
+      setStartTime(startTime)
       setJoined(true)
       setHasSubmitted(false)
       setResults(null)
@@ -37,8 +39,9 @@ export default function JoinPoll() {
       setResults(answers)
     })
 
-    socket.on("new_question", ({ question, options, duration }) => {
+    socket.on("new_question", ({ question, options, duration, startTime }) => {
       setPoll({ question, options, duration })
+      setStartTime(startTime)
       setHasSubmitted(false)
       setResults(null)
     })
@@ -106,6 +109,7 @@ export default function JoinPoll() {
           question={poll.question}
           options={poll.options}
           duration={poll.duration}
+          startTime={startTime}
           onAnswered={onAnswered}
           hasSubmitted={hasSubmitted}
         />

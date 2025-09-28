@@ -25,6 +25,7 @@ interface StudentState {
   currentQuestion: string
   options: string[]
   duration: number
+  startTime?: number
   hasSubmitted: boolean
   selectedAnswer: string
   results: Record<string, string> | null
@@ -52,13 +53,14 @@ export default function StudentInterface({ onBack }: StudentInterfaceProps) {
   useEffect(() => {
     const socket = getSocket()
 
-    socket.on("joined_poll", ({ question, options, duration }) => {
+    socket.on("joined_poll", ({ question, options, duration, startTime }) => {
       setState((prev) => ({
         ...prev,
         isJoined: true,
         currentQuestion: question,
         options,
         duration,
+        startTime,
         hasSubmitted: false,
         selectedAnswer: "",
         results: null,
@@ -75,12 +77,13 @@ export default function StudentInterface({ onBack }: StudentInterfaceProps) {
       setState((prev) => ({ ...prev, connectedStudents: students }))
     })
 
-    socket.on("new_question", ({ question, options, duration }) => {
+    socket.on("new_question", ({ question, options, duration, startTime }) => {
       setState((prev) => ({
         ...prev,
         currentQuestion: question,
         options,
         duration,
+        startTime,
         hasSubmitted: false,
         selectedAnswer: "",
         results: null,
@@ -329,7 +332,12 @@ export default function StudentInterface({ onBack }: StudentInterfaceProps) {
                 )}
 
                 {state.showTimer && !state.hasSubmitted && (
-                  <PollTimer duration={state.duration} onTimeUp={handleTimeUp} isActive={true} />
+                  <PollTimer 
+                    duration={state.duration} 
+                    startTime={state.startTime}
+                    onTimeUp={handleTimeUp} 
+                    isActive={true} 
+                  />
                 )}
 
                 {state.hasSubmitted && !state.results && (

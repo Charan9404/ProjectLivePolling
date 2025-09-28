@@ -6,29 +6,61 @@ import { Clock } from "lucide-react"
 
 interface PollTimerProps {
   duration: number
+  startTime?: number
   onTimeUp: () => void
   isActive: boolean
 }
 
-export default function PollTimer({ duration, onTimeUp, isActive }: PollTimerProps) {
+export default function PollTimer({ duration, startTime, onTimeUp, isActive }: PollTimerProps) {
   const [timeLeft, setTimeLeft] = useState(duration)
 
   useEffect(() => {
+    console.log("PollTimer effect:", { duration, startTime, isActive })
+    
     if (!isActive) return
 
-    setTimeLeft(duration)
-    const interval = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
+    const updateTimer = () => {
+      if (startTime) {
+        // Calculate remaining time based on server start time
+        const elapsed = (Date.now() - startTime) / 1000
+        const remaining = Math.max(0, duration - elapsed)
+        
+        console.log("Timer calculation:", { elapsed, remaining, startTime, duration })
+        
+        if (remaining <= 0) {
           onTimeUp()
           return 0
         }
-        return prev - 1
-      })
+        return Math.ceil(remaining)
+      } else {
+        console.log("No startTime, using fallback timer")
+        // Fallback to local timer if no startTime provided
+        return (prev: number) => {
+          if (prev <= 1) {
+            onTimeUp()
+            return 0
+          }
+          return prev - 1
+        }
+      }
+    }
+
+    // Initial calculation
+    const initialTime = startTime ? updateTimer() : duration
+    console.log("Initial time set to:", initialTime)
+    setTimeLeft(initialTime)
+
+    const interval = setInterval(() => {
+      if (startTime) {
+        const newTime = updateTimer()
+        setTimeLeft(newTime)
+      } else {
+        setTimeLeft(updateTimer())
+      }
     }, 1000)
 
     return () => clearInterval(interval)
-  }, [duration, onTimeUp, isActive])
+  }, [duration, startTime, onTimeUp, isActive])
 
   const progress = ((duration - timeLeft) / duration) * 100
   const minutes = Math.floor(timeLeft / 60)

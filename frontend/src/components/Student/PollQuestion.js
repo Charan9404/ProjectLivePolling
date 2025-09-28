@@ -2,10 +2,9 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { socket } from '../../socket';
 
-export default function PollQuestion({ pollCode, name, question, options, onAnswered, hasSubmitted }) {
-  const DURATION = 60; // default seconds, you can make configurable
+export default function PollQuestion({ pollCode, name, question, options, onAnswered, hasSubmitted, duration = 60, startTime }) {
   const [selected, setSelected] = useState(null);
-  const [timeLeft, setTimeLeft] = useState(DURATION);
+  const [timeLeft, setTimeLeft] = useState(duration);
   const [disabled, setDisabled] = useState(false);
   const timerRef = useRef(null);
 
@@ -13,26 +12,47 @@ export default function PollQuestion({ pollCode, name, question, options, onAnsw
     // reset when question changes
     setSelected(null);
     setDisabled(false);
-    setTimeLeft(DURATION);
     if (timerRef.current) clearInterval(timerRef.current);
 
-    timerRef.current = setInterval(() => {
-      setTimeLeft(t => {
-        if (t <= 1) {
-          clearInterval(timerRef.current);
+    const updateTimer = () => {
+      if (startTime) {
+        // Calculate remaining time based on server start time
+        const elapsed = (Date.now() - startTime) / 1000;
+        const remaining = Math.max(0, duration - elapsed);
+        
+        if (remaining <= 0) {
           setDisabled(true);
-          // emit time_up so server can send results
           socket.emit('time_up', { pollCode, studentName: name });
           return 0;
         }
-        return t - 1;
-      });
+        return Math.ceil(remaining);
+      } else {
+        // Fallback to local timer if no startTime provided
+        setTimeLeft(prev => {
+          if (prev <= 1) {
+            setDisabled(true);
+            socket.emit('time_up', { pollCode, studentName: name });
+            return 0;
+          }
+          return prev - 1;
+        });
+        return timeLeft;
+      }
+    };
+
+    // Initial calculation
+    const initialTime = updateTimer();
+    setTimeLeft(initialTime);
+
+    timerRef.current = setInterval(() => {
+      const newTime = updateTimer();
+      setTimeLeft(newTime);
     }, 1000);
 
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [question, pollCode, name]);
+  }, [question, pollCode, name, duration, startTime]);
 
   useEffect(() => {
     if (hasSubmitted) {

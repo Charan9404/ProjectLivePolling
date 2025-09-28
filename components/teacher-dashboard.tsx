@@ -25,6 +25,7 @@ interface PollState {
   answers: Record<string, string>
   students: Record<string, string>
   duration: number
+  startTime?: number
   isActive: boolean
   showResults: boolean
 }
@@ -69,6 +70,44 @@ export default function TeacherDashboard({ onBack }: TeacherDashboardProps) {
       setPollState((prev) => ({ ...prev, answers, showResults: true }))
     })
 
+    socket.on("new_question", ({ question, options, duration, startTime }) => {
+      setPollState((prev) => ({
+        ...prev,
+        question,
+        options,
+        duration,
+        startTime,
+        answers: {},
+        isActive: true,
+        showResults: false,
+      }))
+    })
+
+    socket.on("question_started", ({ startTime, duration }) => {
+      console.log("Teacher received question_started:", { startTime, duration })
+      setPollState((prev) => ({
+        ...prev,
+        startTime,
+        duration,
+        isActive: true,
+        showResults: false,
+      }))
+    })
+
+    socket.on("poll_state", ({ question, options, answers, students, duration, startTime, isActive }) => {
+      setPollState((prev) => ({
+        ...prev,
+        question,
+        options,
+        answers,
+        students,
+        duration,
+        startTime,
+        isActive,
+        showResults: !isActive && Object.keys(answers || {}).length > 0,
+      }))
+    })
+
     socket.on("error", (message) => {
       toast({
         title: "Error",
@@ -81,6 +120,9 @@ export default function TeacherDashboard({ onBack }: TeacherDashboardProps) {
       socket.off("poll_created")
       socket.off("joined_poll_ack")
       socket.off("update_results")
+      socket.off("new_question")
+      socket.off("question_started")
+      socket.off("poll_state")
       socket.off("error")
     }
   }, [toast])
@@ -94,6 +136,8 @@ export default function TeacherDashboard({ onBack }: TeacherDashboardProps) {
 
   const startNewQuestion = (question: string, options: string[], duration: number) => {
     if (!pollState.pollCode) return
+
+    console.log("Teacher starting new question:", { question, options, duration, pollCode: pollState.pollCode })
 
     setPollState((prev) => ({
       ...prev,
@@ -215,6 +259,7 @@ export default function TeacherDashboard({ onBack }: TeacherDashboardProps) {
                       <div className="mt-6">
                         <PollTimer
                           duration={pollState.duration}
+                          startTime={pollState.startTime}
                           onTimeUp={handleTimeUp}
                           isActive={pollState.isActive}
                         />
