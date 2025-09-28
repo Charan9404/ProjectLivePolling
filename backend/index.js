@@ -194,13 +194,18 @@ io.on("connection", (socket) => {
     console.log(`Time up for poll ${pollCode}`)
     
     // Save poll to history
+    await savePollToHistory(poll)
+  })
+
+  // Helper function to save poll to history
+  async function savePollToHistory(poll) {
     try {
       await savePollHistory(poll)
-      console.log(`✅ Poll ${pollCode} saved to history`)
+      console.log(`✅ Poll ${poll.pollCode || 'unknown'} saved to history`)
     } catch (error) {
-      console.error(`❌ Failed to save poll ${pollCode} to history:`, error)
+      console.error(`❌ Failed to save poll to history:`, error)
     }
-  })
+  }
 
   socket.on("teacher_subscribe", ({ pollCode }) => {
     console.log(`👨‍🏫 Teacher subscribing to poll: ${pollCode}`)
@@ -285,7 +290,7 @@ io.on("connection", (socket) => {
     console.log(`Student ${studentId} removed from poll ${pollCode}`)
   })
 
-  socket.on("disconnect", () => {
+  socket.on("disconnect", async () => {
     console.log("Disconnected:", socket.id)
 
     const { polls } = require("./polls")
@@ -296,6 +301,11 @@ io.on("connection", (socket) => {
         delete poll.answers[studentName]
         io.to(pollCode).emit("joined_poll_ack", { students: poll.students })
         console.log(`Student ${studentName} disconnected from poll ${pollCode}`)
+        
+        // Save poll if teacher disconnected or if poll has responses
+        if (poll.teacherId === socket.id || Object.keys(poll.answers).length > 0) {
+          await savePollToHistory(poll)
+        }
       }
     }
   })
