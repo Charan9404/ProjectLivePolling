@@ -111,6 +111,7 @@ io.on("connection", (socket) => {
       options: poll.options,
       duration,
       startTime: poll.startTime,
+      messages: poll.messages || [],
     })
     
     // Also send the startTime back to the teacher specifically
