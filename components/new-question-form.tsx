@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Plus, Minus, Play, X, AlertCircle } from "lucide-react"
+import { Plus, Minus, Play, X, AlertCircle, Dice6 } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 
 interface NewQuestionFormProps {
@@ -23,6 +23,41 @@ export default function NewQuestionForm({ onSubmit, onCancel, canStart }: NewQue
   const [options, setOptions] = useState([{ text: "", isCorrect: false }, { text: "", isCorrect: false }])
   const [duration, setDuration] = useState(60)
   const [expectedResponses, setExpectedResponses] = useState<number | null>(null)
+  const [diceClickCount, setDiceClickCount] = useState(0)
+
+  // Predefined option sets for dice feature
+  const optionSets = [
+    [
+      { text: "Yes", isCorrect: false },
+      { text: "No", isCorrect: false }
+    ],
+    [
+      { text: "Strongly Agree", isCorrect: false },
+      { text: "Agree", isCorrect: false },
+      { text: "Neutral", isCorrect: false },
+      { text: "Disagree", isCorrect: false },
+      { text: "Strongly Disagree", isCorrect: false }
+    ],
+    [
+      { text: "Excellent", isCorrect: false },
+      { text: "Good", isCorrect: false },
+      { text: "Average", isCorrect: false },
+      { text: "Poor", isCorrect: false }
+    ],
+    [
+      { text: "Very Easy", isCorrect: false },
+      { text: "Easy", isCorrect: false },
+      { text: "Medium", isCorrect: false },
+      { text: "Hard", isCorrect: false },
+      { text: "Very Hard", isCorrect: false }
+    ]
+  ]
+
+  const rollDice = () => {
+    const nextSet = diceClickCount % optionSets.length
+    setOptions(optionSets[nextSet])
+    setDiceClickCount(diceClickCount + 1)
+  }
 
   const addOption = () => {
     if (options.length < 6) {
@@ -98,10 +133,23 @@ export default function NewQuestionForm({ onSubmit, onCancel, canStart }: NewQue
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <Label>Answer Options</Label>
-              <Button type="button" variant="outline" size="sm" onClick={addOption} disabled={options.length >= 6}>
-                <Plus className="w-4 h-4 mr-1" />
-                Add Option
-              </Button>
+              <div className="flex gap-2">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={rollDice}
+                  title="Roll dice for quick automated options"
+                  className="bg-gradient-to-r from-purple-500 to-pink-500 text-white border-0 hover:from-purple-600 hover:to-pink-600"
+                >
+                  <Dice6 className="w-4 h-4 mr-1" />
+                  Roll Dice
+                </Button>
+                <Button type="button" variant="outline" size="sm" onClick={addOption} disabled={options.length >= 6}>
+                  <Plus className="w-4 h-4 mr-1" />
+                  Add Option
+                </Button>
+              </div>
             </div>
             {options.map((option, index) => (
               <div key={index} className="space-y-3 p-4 border rounded-lg">
