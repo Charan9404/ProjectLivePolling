@@ -4,8 +4,13 @@ const { MongoClient } = require('mongodb')
 let MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/live-polling'
 
 // Fix connection string for Railway deployment
-if (MONGODB_URI.includes('mongodb+srv://') && !MONGODB_URI.includes('ssl=')) {
-  MONGODB_URI = MONGODB_URI.replace('?', '?ssl=true&') || MONGODB_URI + '?ssl=true'
+if (MONGODB_URI.includes('mongodb+srv://')) {
+  // Add SSL and connection options for Railway
+  if (!MONGODB_URI.includes('ssl=')) {
+    MONGODB_URI = MONGODB_URI.includes('?') 
+      ? MONGODB_URI + '&ssl=true&authSource=admin'
+      : MONGODB_URI + '?ssl=true&authSource=admin'
+  }
 }
 const DB_NAME = 'live-polling'
 
@@ -28,19 +33,31 @@ async function connectToDatabase() {
       return null
     }
 
+    console.log('🔗 Attempting to connect to MongoDB...')
+    console.log('📍 MongoDB URI:', MONGODB_URI.replace(/\/\/.*@/, '//***:***@')) // Hide credentials
+
     client = new MongoClient(MONGODB_URI, {
-      tls: true,
-      tlsAllowInvalidCertificates: true,
-      tlsAllowInvalidHostnames: true,
-      serverSelectionTimeoutMS: 5000,
-      connectTimeoutMS: 10000,
+      serverSelectionTimeoutMS: 10000,
+      connectTimeoutMS: 15000,
+      maxPoolSize: 10,
+      minPoolSize: 1,
     })
     await client.connect()
+    
+    // Test the connection
+    await client.db(DB_NAME).admin().ping()
+    
     db = client.db(DB_NAME)
-    console.log('✅ Connected to MongoDB')
+    console.log('✅ Connected to MongoDB successfully')
+    console.log('📊 Database:', DB_NAME)
     return db
   } catch (error) {
-    console.error('❌ MongoDB connection error:', error)
+    console.error('❌ MongoDB connection error:', error.message)
+    console.error('🔍 Error details:', {
+      name: error.name,
+      code: error.code,
+      codeName: error.codeName
+    })
     console.log('⚠️  Poll history will be disabled until MongoDB is configured')
     console.log('📝 App will continue to work without poll history storage')
     return null
