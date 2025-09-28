@@ -5,11 +5,17 @@ let MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/live-pol
 
 // Fix connection string for Railway deployment
 if (MONGODB_URI.includes('mongodb+srv://')) {
-  // Add SSL and connection options for Railway
+  // Add SSL options for Railway if not already present
   if (!MONGODB_URI.includes('ssl=')) {
     MONGODB_URI = MONGODB_URI.includes('?') 
-      ? MONGODB_URI + '&ssl=true&authSource=admin'
-      : MONGODB_URI + '?ssl=true&authSource=admin'
+      ? MONGODB_URI + '&ssl=true'
+      : MONGODB_URI + '?ssl=true'
+  }
+  // Add authSource if not already present
+  if (!MONGODB_URI.includes('authSource=')) {
+    MONGODB_URI = MONGODB_URI.includes('?') 
+      ? MONGODB_URI + '&authSource=admin'
+      : MONGODB_URI + '?authSource=admin'
   }
 }
 const DB_NAME = 'live-polling'
