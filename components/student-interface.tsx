@@ -64,6 +64,8 @@ export default function StudentInterface({ onBack }: StudentInterfaceProps) {
 
   useEffect(() => {
     const socket = getSocket()
+    
+    console.log("Student interface mounted, setting up socket listeners")
 
     socket.on("joined_poll", ({ question, options, duration, startTime, messages }) => {
       setState((prev) => ({
@@ -91,12 +93,14 @@ export default function StudentInterface({ onBack }: StudentInterfaceProps) {
     })
 
     socket.on("new_question", ({ question, options, duration, startTime, messages }) => {
-      console.log("Student received new_question:", { question, options, duration, startTime, messages })
+      console.log("🎯 Student received new_question event:", { question, options, duration, startTime, messages })
+      console.log("🎯 Current student state before update:", state)
       setState((prev) => {
         console.log("Student state before new question:", { 
           hasSubmitted: prev.hasSubmitted, 
           selectedAnswer: prev.selectedAnswer, 
-          results: prev.results 
+          results: prev.results,
+          currentQuestion: prev.currentQuestion
         })
         const newState = {
           ...prev,
@@ -110,10 +114,13 @@ export default function StudentInterface({ onBack }: StudentInterfaceProps) {
           showTimer: true,
           messages: messages || prev.messages || [],
         }
+        
+        console.log("🎯 New state after question update:", newState)
         console.log("Student state after new question:", { 
           hasSubmitted: newState.hasSubmitted, 
           selectedAnswer: newState.selectedAnswer, 
-          results: newState.results 
+          results: newState.results,
+          currentQuestion: newState.currentQuestion
         })
         return newState
       })
@@ -124,7 +131,35 @@ export default function StudentInterface({ onBack }: StudentInterfaceProps) {
     })
 
     socket.on("update_results", ({ answers }) => {
+      console.log("🎯🎯🎯 STUDENT RECEIVED UPDATE_RESULTS:", answers)
+      console.log("🎯 Student name:", state.name)
+      console.log("🎯 Poll code:", state.pollCode)
+      setState((prev) => {
+        console.log("Student state before update_results:", { 
+          hasSubmitted: prev.hasSubmitted, 
+          selectedAnswer: prev.selectedAnswer, 
+          results: prev.results 
+        })
+        const newState = { ...prev, results: answers, showTimer: false }
+        console.log("Student state after update_results:", { 
+          hasSubmitted: newState.hasSubmitted, 
+          selectedAnswer: newState.selectedAnswer, 
+          results: newState.results 
+        })
+        return newState
+      })
+    })
+
+    // Force update results when poll ends
+    socket.on("time_up", ({ answers }) => {
+      console.log("Student received time_up:", answers)
       setState((prev) => ({ ...prev, results: answers, showTimer: false }))
+    })
+
+    // TEST: Handle test messages
+    socket.on("test_message", ({ message, answers }) => {
+      console.log("🎯🎯🎯 STUDENT RECEIVED TEST_MESSAGE:", message)
+      console.log("🎯 Test message answers:", answers)
     })
 
     socket.on("chat_message", ({ message }) => {
@@ -195,12 +230,24 @@ export default function StudentInterface({ onBack }: StudentInterfaceProps) {
   const submitAnswer = () => {
     if (!state.selectedAnswer || state.hasSubmitted) return
 
-    console.log("Student submitting answer:", {
+    console.log("🎯 Student submitting answer:", {
       pollCode: state.pollCode,
       studentName: state.name,
       answer: state.selectedAnswer,
-      options: state.options
+      options: state.options,
+      currentQuestion: state.currentQuestion
     })
+
+    // Validate answer before submitting
+    if (!state.options.some(opt => opt.text === state.selectedAnswer)) {
+      console.error("🚨 Invalid answer selected:", state.selectedAnswer, "Options:", state.options)
+      toast({
+        title: "Invalid Answer",
+        description: "Please select a valid option",
+        variant: "destructive"
+      })
+      return
+    }
 
     setState((prev) => ({ ...prev, hasSubmitted: true }))
     const socket = getSocket()
@@ -315,6 +362,16 @@ export default function StudentInterface({ onBack }: StudentInterfaceProps) {
       </div>
     )
   }
+
+  // Debug logging
+  console.log("🎯 Student render state:", {
+    name: state.name,
+    currentQuestion: state.currentQuestion,
+    selectedAnswer: state.selectedAnswer,
+    hasSubmitted: state.hasSubmitted,
+    results: state.results,
+    options: state.options
+  })
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-accent/20 to-primary/10">

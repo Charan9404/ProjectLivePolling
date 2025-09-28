@@ -37,13 +37,22 @@ const io = new Server(server, {
 // Initialize database connection
 connectToDatabase().catch(console.error)
 
-setInterval(() => {
+setInterval(async () => {
   const { polls } = require("./polls")
   const now = Date.now()
   for (const [pollCode, poll] of Object.entries(polls)) {
-    if (poll.startTime && now - poll.startTime > poll.duration * 1000 + 5000) {
+    if (poll.isActive && poll.startTime && now - poll.startTime > poll.duration * 1000 + 5000) {
       poll.isActive = false
       io.to(pollCode).emit("time_up", { answers: poll.answers })
+      console.log(`Poll ${pollCode} timed out automatically`)
+      
+      // Save poll to history
+      try {
+        await savePollToHistory(poll, pollCode)
+        console.log(`Poll ${pollCode} saved to history after timeout`)
+      } catch (error) {
+        console.error(`Failed to save poll ${pollCode} to history:`, error)
+      }
     }
   }
 }, 1000)
@@ -116,8 +125,23 @@ io.on("connection", (socket) => {
     poll.duration = duration
     poll.expectedResponses = expectedResponses || poll.expectedResponses
     poll.isActive = true
+    
+    console.log(`Poll ${pollCode} reactivated for new question. isActive: ${poll.isActive}`)
 
     // Send new_question to all clients in the room (including teacher)
+    console.log(`🎯 Sending new_question to poll ${pollCode} with ${Object.keys(poll.students).length} students`)
+    console.log(`🎯 Students in room:`, Object.keys(poll.students))
+    console.log(`🎯 New question data:`, {
+      question: poll.question,
+      options: poll.options,
+      duration,
+      startTime: poll.startTime
+    })
+    
+    // Send to all clients in the room
+    const roomClients = io.sockets.adapter.rooms.get(pollCode)
+    console.log(`🎯 Room ${pollCode} has ${roomClients ? roomClients.size : 0} clients`)
+    
     io.to(pollCode).emit("new_question", {
       question: poll.question,
       options: poll.options,
@@ -125,6 +149,8 @@ io.on("connection", (socket) => {
       startTime: poll.startTime,
       messages: poll.messages || [],
     })
+    
+    console.log(`🎯 new_question event sent to room ${pollCode}`)
     
     // Also send the startTime back to the teacher specifically
     socket.emit("question_started", {
@@ -152,6 +178,10 @@ io.on("connection", (socket) => {
     poll.students[socket.id] = cleanName
     socket.join(pollCode)
 
+    console.log(`🎯 Student ${cleanName} joined poll ${pollCode}`)
+    console.log(`🎯 Current students in poll:`, Object.keys(poll.students))
+    console.log(`🎯 Room ${pollCode} now has ${io.sockets.adapter.rooms.get(pollCode)?.size || 0} clients`)
+
     io.to(pollCode).emit("joined_poll_ack", { students: poll.students })
 
     socket.emit("joined_poll", {
@@ -174,7 +204,12 @@ io.on("connection", (socket) => {
     }
 
     if (!poll.isActive) {
-      console.log(`Poll not active: ${pollCode}`)
+      console.log(`Poll not active: ${pollCode}. Poll state:`, { 
+        isActive: poll.isActive, 
+        question: poll.question, 
+        startTime: poll.startTime,
+        duration: poll.duration 
+      })
       return socket.emit("error", "Poll is not active")
     }
 
@@ -190,45 +225,70 @@ io.on("connection", (socket) => {
 
     submitAnswer(pollCode, studentName, answer)
     console.log(`Answer submitted successfully. Current answers:`, poll.answers)
+    console.log(`Poll options:`, poll.options)
+    console.log(`Student ${studentName} submitted answer: "${answer}"`)
+    console.log(`Poll is active: ${poll.isActive}`)
+    console.log(`Connected students:`, Object.keys(poll.students))
 
     // Check if all expected students have answered
     const currentAnswers = Object.keys(poll.answers).length
     const joinedStudents = Object.keys(poll.students).length
     const expectedResponses = poll.expectedResponses || joinedStudents
     
+    console.log(`Answer check: currentAnswers=${currentAnswers}, joinedStudents=${joinedStudents}, expectedResponses=${expectedResponses}`)
+    
     const allExpectedAnswered = expectedResponses && currentAnswers >= expectedResponses
     const allJoinedAnswered = joinedStudents > 0 && currentAnswers >= joinedStudents
+    
+    // BULLETPROOF: Send update_results to ALL clients in the room
+    console.log(`🎯🎯🎯 SENDING UPDATE_RESULTS TO POLL ${pollCode}:`, poll.answers)
+    console.log(`🎯 Broadcasting to ALL clients in room ${pollCode}`)
+    
+    // Get room clients to verify they're connected
+    const roomClients = io.sockets.adapter.rooms.get(pollCode)
+    console.log(`🎯 Room ${pollCode} has ${roomClients ? roomClients.size : 0} clients`)
+    
+    if (roomClients) {
+      console.log(`🎯 Room clients:`, Array.from(roomClients))
+    }
+    
+    // Send to ALL clients in the room (students + teacher)
+    io.to(pollCode).emit("update_results", { answers: poll.answers })
+    console.log(`🎯✅ SENT update_results to room ${pollCode}`)
+    
+    // TEST: Send a test message to verify all students receive it
+    io.to(pollCode).emit("test_message", { 
+      message: `Test message sent to room ${pollCode} at ${new Date().toISOString()}`,
+      answers: poll.answers 
+    })
+    console.log(`🎯✅ SENT test_message to room ${pollCode}`)
+    
+    // Also send to teacher specifically if they're subscribed
+    const currentPoll = getPoll(pollCode)
+    if (currentPoll && currentPoll.teacherId) {
+      const teacherSocket = io.sockets.sockets.get(currentPoll.teacherId)
+      if (teacherSocket) {
+        teacherSocket.emit("update_results", { answers: currentPoll.answers })
+        console.log(`🎯 Also sent update_results to teacher ${currentPoll.teacherId}`)
+      }
+    }
     
     if (poll.isActive && (allExpectedAnswered || allJoinedAnswered)) {
       console.log(`All students have answered! Ending poll ${pollCode} automatically`)
       
       // End the poll automatically
       poll.isActive = false
-      io.to(pollCode).emit("update_results", { answers: poll.answers })
       io.to(pollCode).emit("time_up", { answers: poll.answers })
       
       // Save poll to history
       await savePollToHistory(poll, pollCode)
-    } else {
-      io.to(pollCode).emit("update_results", { answers: poll.answers })
     }
     
     console.log(`Broadcasted results to poll ${pollCode}`)
   })
 
-  socket.on("time_up", async ({ pollCode }) => {
-    const poll = getPoll(pollCode)
-    if (!poll) return
-
-    if (poll.teacherId !== socket.id) return
-
-    poll.isActive = false
-    io.to(pollCode).emit("update_results", { answers: poll.answers })
-    console.log(`Time up for poll ${pollCode}`)
-    
-    // Save poll to history
-    await savePollToHistory(poll, pollCode)
-  })
+  // Note: time_up events are handled by the setInterval function above
+  // This socket handler is not needed as it causes duplicate processing
 
   // Helper function to save poll to history
   async function savePollToHistory(poll, pollCode) {

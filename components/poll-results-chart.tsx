@@ -11,6 +11,8 @@ interface PollResultsChartProps {
 }
 
 export default function PollResultsChart({ question, options, answers }: PollResultsChartProps) {
+  console.log("PollResultsChart received:", { question, options, answers })
+  
   const answerCounts = options.reduce(
     (acc, option) => {
       acc[option.text] = Object.values(answers).filter((answer) => answer === option.text).length
@@ -21,6 +23,8 @@ export default function PollResultsChart({ question, options, answers }: PollRes
 
   const totalAnswers = Object.values(answerCounts).reduce((sum, count) => sum + count, 0)
   const maxCount = Math.max(...Object.values(answerCounts))
+  
+  console.log("PollResultsChart calculated:", { answerCounts, totalAnswers, maxCount })
 
   return (
     <Card className="poll-card">
