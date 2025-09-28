@@ -5,8 +5,9 @@ let MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/live-pol
 
 // Fix connection string for Railway deployment
 if (MONGODB_URI.includes('mongodb+srv://')) {
-  // Remove any existing SSL parameters and use a clean connection string
-  MONGODB_URI = MONGODB_URI.split('?')[0] + '?retryWrites=true&w=majority'
+  // Use the exact format recommended by MongoDB Atlas
+  // Don't modify the connection string - use it as provided
+  console.log('📝 Using MongoDB Atlas connection string')
 }
 const DB_NAME = 'live-polling'
 
