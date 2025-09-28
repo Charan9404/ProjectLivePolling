@@ -1,16 +1,18 @@
 const polls = {}
 
-function createPoll(teacherId, question, options, duration = 60) {
+function createPoll(teacherId, question, options, duration = 60, expectedResponses = null) {
   const pollCode = Math.floor(100000 + Math.random() * 900000).toString()
   polls[pollCode] = {
     teacherId,
     question,
-    options,
+    options, // Array of { text, isCorrect }
     answers: {}, // { studentName: answer }
     students: {}, // { socketId: studentName }
     startTime: Date.now(),
     duration,
+    expectedResponses,
     isActive: true,
+    messages: [], // [{ from: 'teacher'|'student', name, text, ts }]
   }
   return pollCode
 }

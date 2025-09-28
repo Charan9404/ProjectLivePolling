@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, Plus, RotateCcw } from "lucide-react"
+import { ArrowLeft, Plus, RotateCcw, History } from "lucide-react"
 import { getSocket } from "@/lib/socket"
 import { useToast } from "@/hooks/use-toast"
 import CreatePollForm from "./create-poll-form"
@@ -13,6 +13,7 @@ import StudentList from "./student-list"
 import PollResultsChart from "./poll-results-chart"
 import PollTimer from "./poll-timer"
 import NewQuestionForm from "./new-question-form"
+import PollHistory from "./poll-history"
 
 interface TeacherDashboardProps {
   onBack: () => void
@@ -21,13 +22,23 @@ interface TeacherDashboardProps {
 interface PollState {
   pollCode: string | null
   question: string
-  options: string[]
+  options: { text: string; isCorrect: boolean }[]
   answers: Record<string, string>
   students: Record<string, string>
   duration: number
   startTime?: number
+  expectedResponses?: number | null
   isActive: boolean
   showResults: boolean
+  messages?: ChatMessage[]
+}
+
+interface ChatMessage {
+  id: string
+  from: "teacher" | "student"
+  name: string
+  text: string
+  ts: number
 }
 
 export default function TeacherDashboard({ onBack }: TeacherDashboardProps) {
@@ -43,6 +54,9 @@ export default function TeacherDashboard({ onBack }: TeacherDashboardProps) {
   })
   const [isCreating, setIsCreating] = useState(false)
   const [showNewQuestionForm, setShowNewQuestionForm] = useState(false)
+  const [chatOpen, setChatOpen] = useState(true)
+  const [chatInput, setChatInput] = useState("")
+  const [historyOpen, setHistoryOpen] = useState(false)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -56,6 +70,10 @@ export default function TeacherDashboard({ onBack }: TeacherDashboardProps) {
         showResults: false,
       }))
       setIsCreating(false)
+      
+      // Join the poll room to receive updates
+      socket.emit("teacher_subscribe", { pollCode })
+      
       toast({
         title: "Poll created successfully!",
         description: `Share code ${pollCode} with your students`,
@@ -67,6 +85,7 @@ export default function TeacherDashboard({ onBack }: TeacherDashboardProps) {
     })
 
     socket.on("update_results", ({ answers }) => {
+      console.log("📊 Teacher received update_results:", answers)
       setPollState((prev) => ({ ...prev, answers, showResults: true }))
     })
 
@@ -94,7 +113,7 @@ export default function TeacherDashboard({ onBack }: TeacherDashboardProps) {
       }))
     })
 
-    socket.on("poll_state", ({ question, options, answers, students, duration, startTime, isActive }) => {
+    socket.on("poll_state", ({ question, options, answers, students, duration, startTime, expectedResponses, isActive, messages }) => {
       setPollState((prev) => ({
         ...prev,
         question,
@@ -103,9 +122,15 @@ export default function TeacherDashboard({ onBack }: TeacherDashboardProps) {
         students,
         duration,
         startTime,
+        expectedResponses,
         isActive,
         showResults: !isActive && Object.keys(answers || {}).length > 0,
+        messages: messages || prev.messages || [],
       }))
+    })
+
+    socket.on("chat_message", ({ message }) => {
+      setPollState((prev) => ({ ...prev, messages: [ ...(prev.messages || []), message ] }))
     })
 
     socket.on("error", (message) => {
@@ -123,27 +148,29 @@ export default function TeacherDashboard({ onBack }: TeacherDashboardProps) {
       socket.off("new_question")
       socket.off("question_started")
       socket.off("poll_state")
+      socket.off("chat_message")
       socket.off("error")
     }
   }, [toast])
 
-  const createPoll = (question: string, options: string[], duration: number) => {
+  const createPoll = (question: string, options: { text: string; isCorrect: boolean }[], duration: number, expectedResponses: number | null) => {
     setIsCreating(true)
-    setPollState((prev) => ({ ...prev, question, options, duration }))
+    setPollState((prev) => ({ ...prev, question, options, duration, expectedResponses }))
     const socket = getSocket()
-    socket.emit("teacher_create_poll", { question, options, duration })
+    socket.emit("teacher_create_poll", { question, options, duration, expectedResponses })
   }
 
-  const startNewQuestion = (question: string, options: string[], duration: number) => {
+  const startNewQuestion = (question: string, options: { text: string; isCorrect: boolean }[], duration: number, expectedResponses: number | null) => {
     if (!pollState.pollCode) return
 
-    console.log("Teacher starting new question:", { question, options, duration, pollCode: pollState.pollCode })
+    console.log("Teacher starting new question:", { question, options, duration, expectedResponses, pollCode: pollState.pollCode })
 
     setPollState((prev) => ({
       ...prev,
       question,
       options,
       duration,
+      expectedResponses,
       answers: {},
       isActive: true,
       showResults: false,
@@ -155,6 +182,7 @@ export default function TeacherDashboard({ onBack }: TeacherDashboardProps) {
       question,
       options,
       duration,
+      expectedResponses,
     })
     setShowNewQuestionForm(false)
     toast({
@@ -193,8 +221,24 @@ export default function TeacherDashboard({ onBack }: TeacherDashboardProps) {
   }
 
   const canStartNewQuestion = () => {
-    const allAnswered = Object.keys(pollState.answers).length === Object.keys(pollState.students).length
-    return !pollState.isActive || allAnswered
+    if (!pollState.isActive) return true
+    
+    const currentAnswers = Object.keys(pollState.answers).length
+    const joinedStudents = Object.keys(pollState.students).length
+    const expected = pollState.expectedResponses || joinedStudents
+    
+    // Allow if all expected responses received or all joined students answered
+    const allExpectedAnswered = expected && currentAnswers >= expected
+    const allJoinedAnswered = joinedStudents > 0 && currentAnswers >= joinedStudents
+    
+    return allExpectedAnswered || allJoinedAnswered
+  }
+
+  const sendTeacherMessage = () => {
+    if (!pollState.pollCode || !chatInput.trim()) return
+    const socket = getSocket()
+    socket.emit("teacher_send_message", { pollCode: pollState.pollCode, text: chatInput.trim() })
+    setChatInput("")
   }
 
   return (
@@ -211,12 +255,21 @@ export default function TeacherDashboard({ onBack }: TeacherDashboardProps) {
               <p className="text-muted-foreground">Create and manage live polls for your classroom</p>
             </div>
           </div>
-          {pollState.pollCode && (
-            <div className="flex gap-2">
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => setHistoryOpen(true)} 
+              className="gap-2 bg-transparent"
+            >
+              <History className="w-4 h-4" />
+              Poll History
+            </Button>
+            {pollState.pollCode && (
               <Button variant="outline" onClick={resetPoll} className="gap-2 bg-transparent">
                 <RotateCcw className="w-4 h-4" />
                 New Poll
               </Button>
+            )}
               <Button
                 onClick={() => setShowNewQuestionForm(true)}
                 disabled={!canStartNewQuestion()}
@@ -251,7 +304,7 @@ export default function TeacherDashboard({ onBack }: TeacherDashboardProps) {
                     <div className="space-y-2">
                       {pollState.options.map((option, index) => (
                         <div key={index} className="p-3 bg-accent/30 rounded-lg">
-                          <span className="font-medium">{String.fromCharCode(65 + index)}.</span> {option}
+                          <span className="font-medium">{String.fromCharCode(65 + index)}.</span> {option.text}
                         </div>
                       ))}
                     </div>
@@ -280,6 +333,39 @@ export default function TeacherDashboard({ onBack }: TeacherDashboardProps) {
 
             <div className="space-y-6">
               <PollCodeDisplay pollCode={pollState.pollCode} isActive={pollState.isActive} />
+              
+              {/* Response Progress */}
+              {pollState.isActive && (
+                <Card className="poll-card">
+                  <CardHeader>
+                    <CardTitle>Response Progress</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span>Responses Received</span>
+                        <span className="font-medium">
+                          {Object.keys(pollState.answers).length} / {pollState.expectedResponses || Object.keys(pollState.students).length}
+                        </span>
+                      </div>
+                      <div className="w-full bg-accent/30 rounded-full h-2">
+                        <div 
+                          className="bg-primary h-2 rounded-full transition-all duration-300"
+                          style={{ 
+                            width: `${Math.min(100, (Object.keys(pollState.answers).length / (pollState.expectedResponses || Object.keys(pollState.students).length || 1)) * 100)}%` 
+                          }}
+                        />
+                      </div>
+                      {pollState.expectedResponses && (
+                        <p className="text-xs text-muted-foreground">
+                          Expected: {pollState.expectedResponses} students
+                        </p>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+              
               <StudentList students={pollState.students} answers={pollState.answers} onRemoveStudent={removeStudent} />
             </div>
           </div>
@@ -297,6 +383,64 @@ export default function TeacherDashboard({ onBack }: TeacherDashboardProps) {
           </div>
         )}
       </div>
+
+      {showNewQuestionForm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="max-w-2xl w-full">
+            <NewQuestionForm
+              onSubmit={startNewQuestion}
+              onCancel={() => setShowNewQuestionForm(false)}
+              canStart={canStartNewQuestion()}
+            />
+          </div>
+        </div>
+      )}
+
+      {pollState.pollCode && (
+        <div className="fixed bottom-4 right-4 w-80 z-50">
+          <div className="shadow-lg rounded-xl overflow-hidden bg-background border">
+            <div className="flex items-center justify-between px-3 py-2 bg-accent/40">
+              <div className="text-sm font-medium">Class Chat</div>
+              <Button variant="ghost" size="sm" onClick={() => setChatOpen(!chatOpen)} className="bg-transparent">
+                {chatOpen ? "Hide" : "Show"}
+              </Button>
+            </div>
+            {chatOpen && (
+              <div className="flex flex-col h-80">
+                <div className="flex-1 p-3 space-y-3 overflow-auto">
+                  {(pollState.messages || []).map((m) => (
+                    <div key={m.id} className={`text-sm ${m.from === "teacher" ? "text-foreground" : ""}`}>
+                      <div className="font-medium mb-0.5">
+                        {m.from === "teacher" ? "You" : m.name}
+                        <span className="ml-2 text-[10px] text-muted-foreground">{new Date(m.ts).toLocaleTimeString()}</span>
+                      </div>
+                      <div className={`px-3 py-2 rounded-lg inline-block ${m.from === "teacher" ? "bg-primary text-primary-foreground" : "bg-accent"}`}>
+                        {m.text}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="p-3 border-t flex gap-2">
+                  <input
+                    value={chatInput}
+                    onChange={(e) => setChatInput(e.target.value)}
+                    placeholder="Message all students"
+                    className="flex-1 px-3 py-2 rounded-md border bg-background"
+                  />
+                  <Button onClick={sendTeacherMessage} className="gradient-bg text-white">Send</Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Poll History Dialog */}
+      <PollHistory 
+        teacherId={getSocket().id} 
+        isOpen={historyOpen} 
+        onClose={() => setHistoryOpen(false)} 
+      />
     </div>
   )
 }

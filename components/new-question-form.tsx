@@ -13,19 +13,20 @@ import { Plus, Minus, Play, X, AlertCircle } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 
 interface NewQuestionFormProps {
-  onSubmit: (question: string, options: string[], duration: number) => void
+  onSubmit: (question: string, options: { text: string; isCorrect: boolean }[], duration: number, expectedResponses: number | null) => void
   onCancel: () => void
   canStart: boolean
 }
 
 export default function NewQuestionForm({ onSubmit, onCancel, canStart }: NewQuestionFormProps) {
   const [question, setQuestion] = useState("")
-  const [options, setOptions] = useState(["", ""])
+  const [options, setOptions] = useState([{ text: "", isCorrect: false }, { text: "", isCorrect: false }])
   const [duration, setDuration] = useState(60)
+  const [expectedResponses, setExpectedResponses] = useState<number | null>(null)
 
   const addOption = () => {
     if (options.length < 6) {
-      setOptions([...options, ""])
+      setOptions([...options, { text: "", isCorrect: false }])
     }
   }
 
@@ -35,24 +36,32 @@ export default function NewQuestionForm({ onSubmit, onCancel, canStart }: NewQue
     }
   }
 
-  const updateOption = (index: number, value: string) => {
+  const updateOptionText = (index: number, value: string) => {
     const newOptions = [...options]
-    newOptions[index] = value
+    newOptions[index] = { ...newOptions[index], text: value }
+    setOptions(newOptions)
+  }
+
+  const updateOptionCorrect = (index: number, isCorrect: boolean) => {
+    const newOptions = [...options]
+    newOptions[index] = { ...newOptions[index], isCorrect }
     setOptions(newOptions)
   }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    const cleanOptions = options.map((opt) => opt.trim()).filter((opt) => opt !== "")
+    const cleanOptions = options
+      .map((opt) => ({ ...opt, text: opt.text.trim() }))
+      .filter((opt) => opt.text !== "")
 
     if (!question.trim() || cleanOptions.length < 2) {
       return
     }
 
-    onSubmit(question.trim(), cleanOptions, duration)
+    onSubmit(question.trim(), cleanOptions, duration, expectedResponses)
   }
 
-  const isValid = question.trim() && options.filter((opt) => opt.trim()).length >= 2
+  const isValid = question.trim() && options.filter((opt) => opt.text.trim()).length >= 2
 
   return (
     <Card className="poll-card">
@@ -95,22 +104,52 @@ export default function NewQuestionForm({ onSubmit, onCancel, canStart }: NewQue
               </Button>
             </div>
             {options.map((option, index) => (
-              <div key={index} className="flex gap-2">
-                <Input
-                  placeholder={`Option ${index + 1}`}
-                  value={option}
-                  onChange={(e) => updateOption(index, e.target.value)}
-                  className="flex-1"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  onClick={() => removeOption(index)}
-                  disabled={options.length <= 2}
-                >
-                  <Minus className="w-4 h-4" />
-                </Button>
+              <div key={index} className="space-y-3 p-4 border rounded-lg">
+                <div className="flex gap-2">
+                  <div className="w-8 h-8 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-sm font-medium">
+                    {index + 1}
+                  </div>
+                  <Input
+                    placeholder={`Option ${index + 1}`}
+                    value={option.text}
+                    onChange={(e) => updateOptionText(index, e.target.value)}
+                    className="flex-1"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => removeOption(index)}
+                    disabled={options.length <= 2}
+                  >
+                    <Minus className="w-4 h-4" />
+                  </Button>
+                </div>
+                <div className="flex items-center gap-4">
+                  <span className="text-sm font-medium text-muted-foreground">Is it Correct?</span>
+                  <div className="flex gap-4">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name={`correct-${index}`}
+                        checked={option.isCorrect === true}
+                        onChange={() => updateOptionCorrect(index, true)}
+                        className="w-4 h-4 text-primary"
+                      />
+                      <span className="text-sm">Yes</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name={`correct-${index}`}
+                        checked={option.isCorrect === false}
+                        onChange={() => updateOptionCorrect(index, false)}
+                        className="w-4 h-4 text-primary"
+                      />
+                      <span className="text-sm">No</span>
+                    </label>
+                  </div>
+                </div>
               </div>
             ))}
           </div>
@@ -129,6 +168,22 @@ export default function NewQuestionForm({ onSubmit, onCancel, canStart }: NewQue
                 <SelectItem value="600">10 minutes</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="expectedResponses">Expected Responses (Optional)</Label>
+            <Input
+              id="expectedResponses"
+              type="number"
+              placeholder="e.g., 25 (leave empty for all joined students)"
+              value={expectedResponses || ""}
+              onChange={(e) => setExpectedResponses(e.target.value ? Number.parseInt(e.target.value) : null)}
+              min="1"
+              max="1000"
+            />
+            <p className="text-xs text-muted-foreground">
+              Set how many students you expect to answer. Leave empty to allow all joined students to answer.
+            </p>
           </div>
 
           <div className="flex gap-3">

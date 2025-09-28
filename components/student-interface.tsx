@@ -23,7 +23,7 @@ interface StudentState {
   pollCode: string
   isJoined: boolean
   currentQuestion: string
-  options: string[]
+  options: { text: string; isCorrect: boolean }[]
   duration: number
   startTime?: number
   hasSubmitted: boolean
@@ -31,6 +31,15 @@ interface StudentState {
   results: Record<string, string> | null
   connectedStudents: Record<string, string>
   showTimer: boolean
+  messages?: ChatMessage[]
+}
+
+interface ChatMessage {
+  id: string
+  from: "teacher" | "student"
+  name: string
+  text: string
+  ts: number
 }
 
 export default function StudentInterface({ onBack }: StudentInterfaceProps) {
@@ -46,14 +55,17 @@ export default function StudentInterface({ onBack }: StudentInterfaceProps) {
     results: null,
     connectedStudents: {},
     showTimer: false,
+    messages: [],
   })
   const [isJoining, setIsJoining] = useState(false)
+  const [chatOpen, setChatOpen] = useState(true)
+  const [replyText, setReplyText] = useState("")
   const { toast } = useToast()
 
   useEffect(() => {
     const socket = getSocket()
 
-    socket.on("joined_poll", ({ question, options, duration, startTime }) => {
+    socket.on("joined_poll", ({ question, options, duration, startTime, messages }) => {
       setState((prev) => ({
         ...prev,
         isJoined: true,
@@ -65,6 +77,7 @@ export default function StudentInterface({ onBack }: StudentInterfaceProps) {
         selectedAnswer: "",
         results: null,
         showTimer: true,
+        messages: messages || [],
       }))
       setIsJoining(false)
       toast({
@@ -77,7 +90,7 @@ export default function StudentInterface({ onBack }: StudentInterfaceProps) {
       setState((prev) => ({ ...prev, connectedStudents: students }))
     })
 
-    socket.on("new_question", ({ question, options, duration, startTime }) => {
+    socket.on("new_question", ({ question, options, duration, startTime, messages }) => {
       setState((prev) => ({
         ...prev,
         currentQuestion: question,
@@ -88,6 +101,7 @@ export default function StudentInterface({ onBack }: StudentInterfaceProps) {
         selectedAnswer: "",
         results: null,
         showTimer: true,
+        messages: messages || prev.messages || [],
       }))
       toast({
         title: "New question!",
@@ -97,6 +111,30 @@ export default function StudentInterface({ onBack }: StudentInterfaceProps) {
 
     socket.on("update_results", ({ answers }) => {
       setState((prev) => ({ ...prev, results: answers, showTimer: false }))
+    })
+
+    socket.on("chat_message", ({ message }) => {
+      console.log("💬 Student received chat message:", { 
+        message, 
+        studentName: state.name, 
+        messageFrom: message.from, 
+        messageName: message.name,
+        isTeacher: message.from === "teacher",
+        isOwnMessage: message.from === "student" && message.name === state.name,
+        nameMatch: message.name === state.name
+      })
+      // Students see teacher messages and their own messages
+      // Temporarily show all messages for debugging
+      if (message.from === "teacher" || (message.from === "student" && message.name === state.name) || true) {
+        console.log("✅ Adding message to student chat")
+        setState((prev) => {
+          const newMessages = [...(prev.messages || []), message]
+          console.log("Updated messages array:", newMessages)
+          return { ...prev, messages: newMessages }
+        })
+      } else {
+        console.log("❌ Message filtered out - not teacher and not own message")
+      }
     })
 
     socket.on("error", (message) => {
@@ -113,6 +151,7 @@ export default function StudentInterface({ onBack }: StudentInterfaceProps) {
       socket.off("joined_poll_ack")
       socket.off("new_question")
       socket.off("update_results")
+      socket.off("chat_message")
       socket.off("error")
     }
   }, [toast])
@@ -142,6 +181,13 @@ export default function StudentInterface({ onBack }: StudentInterfaceProps) {
   const submitAnswer = () => {
     if (!state.selectedAnswer || state.hasSubmitted) return
 
+    console.log("🎯 Student submitting answer:", {
+      pollCode: state.pollCode,
+      studentName: state.name,
+      answer: state.selectedAnswer,
+      options: state.options
+    })
+
     setState((prev) => ({ ...prev, hasSubmitted: true }))
     const socket = getSocket()
     socket.emit("submit_answer", {
@@ -158,6 +204,13 @@ export default function StudentInterface({ onBack }: StudentInterfaceProps) {
 
   const handleTimeUp = () => {
     setState((prev) => ({ ...prev, showTimer: false }))
+  }
+
+  const sendReply = () => {
+    if (!replyText.trim() || !state.pollCode) return
+    const socket = getSocket()
+    socket.emit("student_send_message", { pollCode: state.pollCode, text: replyText.trim() })
+    setReplyText("")
   }
 
   const leavePoll = () => {
@@ -297,9 +350,9 @@ export default function StudentInterface({ onBack }: StudentInterfaceProps) {
                       {state.options.map((option, index) => (
                         <button
                           key={index}
-                          onClick={() => setState((prev) => ({ ...prev, selectedAnswer: option }))}
+                          onClick={() => setState((prev) => ({ ...prev, selectedAnswer: option.text }))}
                           className={`p-4 text-left rounded-lg border-2 transition-all ${
-                            state.selectedAnswer === option
+                            state.selectedAnswer === option.text
                               ? "border-primary bg-primary/10 text-primary"
                               : "border-border hover:border-primary/50 hover:bg-accent/50"
                           }`}
@@ -307,15 +360,15 @@ export default function StudentInterface({ onBack }: StudentInterfaceProps) {
                           <div className="flex items-center gap-3">
                             <div
                               className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
-                                state.selectedAnswer === option
+                                state.selectedAnswer === option.text
                                   ? "border-primary bg-primary text-primary-foreground"
                                   : "border-muted-foreground"
                               }`}
                             >
-                              {state.selectedAnswer === option && <div className="w-2 h-2 bg-current rounded-full" />}
+                              {state.selectedAnswer === option.text && <div className="w-2 h-2 bg-current rounded-full" />}
                             </div>
                             <span className="font-medium">{String.fromCharCode(65 + index)}.</span>
-                            <span>{option}</span>
+                            <span>{option.text}</span>
                           </div>
                         </button>
                       ))}
@@ -341,10 +394,82 @@ export default function StudentInterface({ onBack }: StudentInterfaceProps) {
                 )}
 
                 {state.hasSubmitted && !state.results && (
-                  <div className="text-center py-8">
-                    <CheckCircle className="w-16 h-16 mx-auto mb-4 text-green-500" />
-                    <h3 className="text-lg font-semibold mb-2">Answer Submitted!</h3>
-                    <p className="text-muted-foreground">Waiting for other students to respond...</p>
+                  <div className="space-y-6">
+                    <div className="text-center py-4">
+                      <CheckCircle className="w-16 h-16 mx-auto mb-4 text-green-500" />
+                      <h3 className="text-lg font-semibold mb-2">Answer Submitted!</h3>
+                      <p className="text-muted-foreground">Waiting for other students to respond...</p>
+                    </div>
+                    
+                    {/* Show student's selection */}
+                    <div className="space-y-3">
+                      <h4 className="font-medium text-sm text-muted-foreground">Your Answer:</h4>
+                      <div className="p-3 rounded-lg border-2 border-primary bg-primary/5">
+                        <div className="flex items-center gap-3">
+                          <div className="w-6 h-6 rounded-full border-2 border-primary bg-primary text-white flex items-center justify-center">
+                            <div className="w-2 h-2 bg-current rounded-full" />
+                          </div>
+                          <span className="font-medium">
+                            {String.fromCharCode(65 + state.options.findIndex(opt => opt.text === state.selectedAnswer))}.
+                          </span>
+                          <span className="font-medium">{state.selectedAnswer}</span>
+                          <span className="ml-auto px-2 py-1 text-xs font-medium bg-primary/10 text-primary rounded-full">
+                            Your Choice
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Show correct answers */}
+                    <div className="space-y-3">
+                      <h4 className="font-medium text-sm text-muted-foreground">Correct Answers:</h4>
+                      <div className="space-y-2">
+                        {state.options.map((option, index) => {
+                          const isStudentChoice = option.text === state.selectedAnswer
+                          const isCorrect = option.isCorrect
+                          const isCorrectAndSelected = isCorrect && isStudentChoice
+                          
+                          return (
+                            <div key={index} className={`p-3 rounded-lg border ${
+                              isCorrect 
+                                ? "border-green-200 bg-green-50" 
+                                : "border-gray-200 bg-gray-50"
+                            }`}>
+                              <div className="flex items-center gap-3">
+                                <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
+                                  isCorrect 
+                                    ? "border-green-500 bg-green-500 text-white" 
+                                    : "border-gray-300"
+                                }`}>
+                                  {isCorrect && <div className="w-2 h-2 bg-current rounded-full" />}
+                                </div>
+                                <span className="font-medium">{String.fromCharCode(65 + index)}.</span>
+                                <span className={isCorrect ? "text-green-800 font-medium" : "text-gray-600"}>
+                                  {option.text}
+                                </span>
+                                <div className="ml-auto flex gap-2">
+                                  {isStudentChoice && (
+                                    <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
+                                      You Selected
+                                    </span>
+                                  )}
+                                  {isCorrect && (
+                                    <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">
+                                      ✓ Correct
+                                    </span>
+                                  )}
+                                  {isCorrectAndSelected && (
+                                    <span className="px-2 py-1 text-xs font-medium bg-emerald-100 text-emerald-800 rounded-full">
+                                      🎉 Right!
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
                   </div>
                 )}
               </CardContent>
@@ -352,7 +477,43 @@ export default function StudentInterface({ onBack }: StudentInterfaceProps) {
           )}
 
           {state.results && (
-            <PollResultsChart question={state.currentQuestion} options={state.options} answers={state.results} />
+            <div className="space-y-6">
+              {/* Student's personal result */}
+              <Card className="poll-card">
+                <CardHeader>
+                  <CardTitle className="text-lg">Your Result</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <div className="p-3 rounded-lg border-2 border-primary bg-primary/5">
+                      <div className="flex items-center gap-3">
+                        <div className="w-6 h-6 rounded-full border-2 border-primary bg-primary text-white flex items-center justify-center">
+                          <div className="w-2 h-2 bg-current rounded-full" />
+                        </div>
+                        <span className="font-medium">
+                          {String.fromCharCode(65 + state.options.findIndex(opt => opt.text === state.selectedAnswer))}.
+                        </span>
+                        <span className="font-medium">{state.selectedAnswer}</span>
+                        <div className="ml-auto flex gap-2">
+                          {state.options.find(opt => opt.text === state.selectedAnswer)?.isCorrect ? (
+                            <span className="px-2 py-1 text-xs font-medium bg-emerald-100 text-emerald-800 rounded-full">
+                              🎉 Correct!
+                            </span>
+                          ) : (
+                            <span className="px-2 py-1 text-xs font-medium bg-red-100 text-red-800 rounded-full">
+                              ❌ Incorrect
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              {/* Full results with voting counts */}
+              <PollResultsChart question={state.currentQuestion} options={state.options} answers={state.results} />
+            </div>
           )}
 
           {!state.currentQuestion && (
@@ -363,6 +524,45 @@ export default function StudentInterface({ onBack }: StudentInterfaceProps) {
                 <p className="text-muted-foreground">Your teacher will start the poll shortly</p>
               </CardContent>
             </Card>
+          )}
+        </div>
+      </div>
+
+      {/* Chat Panel - Student (view teacher, reply to teacher) */}
+      <div className="fixed bottom-4 right-4 w-80 z-50">
+        <div className="shadow-lg rounded-xl overflow-hidden bg-background border">
+          <div className="flex items-center justify-between px-3 py-2 bg-accent/40">
+            <div className="text-sm font-medium">Teacher Chat</div>
+            <Button variant="ghost" size="sm" onClick={() => setChatOpen(!chatOpen)} className="bg-transparent">
+              {chatOpen ? "Hide" : "Show"}
+            </Button>
+          </div>
+          {chatOpen && (
+            <div className="flex flex-col h-72">
+              <div className="flex-1 p-3 space-y-3 overflow-auto">
+                {console.log("Rendering messages:", state.messages)}
+                {(state.messages || []).map((m) => (
+                  <div key={m.id} className="text-sm">
+                    <div className="font-medium mb-0.5">
+                      {m.from === "teacher" ? "Teacher" : m.name}
+                      <span className="ml-2 text-[10px] text-muted-foreground">{new Date(m.ts).toLocaleTimeString()}</span>
+                    </div>
+                    <div className={`px-3 py-2 rounded-lg inline-block ${m.from === "teacher" ? "bg-primary text-primary-foreground" : "bg-accent"}`}>
+                      {m.text}
+                    </div>
+                    </div>
+                ))}
+              </div>
+              <div className="p-3 border-t flex gap-2">
+                <input
+                  value={replyText}
+                  onChange={(e) => setReplyText(e.target.value)}
+                  placeholder="Reply to teacher"
+                  className="flex-1 px-3 py-2 rounded-md border bg-background"
+                />
+                <Button onClick={sendReply} className="gradient-bg text-white">Send</Button>
+              </div>
+            </div>
           )}
         </div>
       </div>

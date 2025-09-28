@@ -1,8 +1,10 @@
+require('dotenv').config()
 const express = require("express")
 const http = require("http")
 const { Server } = require("socket.io")
 const cors = require("cors")
 const { createPoll, getPoll, submitAnswer, removeStudent } = require("./polls")
+const { connectToDatabase, savePollHistory, getPollHistory, getPollDetails, getPollStats } = require("./database")
 
 const app = express()
 app.use(cors({
@@ -25,6 +27,9 @@ const io = new Server(server, {
   },
 })
 
+// Initialize database connection
+connectToDatabase().catch(console.error)
+
 setInterval(() => {
   const { polls } = require("./polls")
   const now = Date.now()
@@ -40,18 +45,19 @@ io.on("connection", (socket) => {
   console.log("✅ New connection:", socket.id)
   console.log("✅ Connection origin:", socket.handshake.headers.origin)
 
-  socket.on("teacher_create_poll", ({ question, options, duration }) => {
+  socket.on("teacher_create_poll", ({ question, options, duration, expectedResponses }) => {
     try {
       if (!question?.trim() || !Array.isArray(options) || options.length < 2) {
         return socket.emit("error", "Invalid poll data. Need question and at least 2 options.")
       }
 
-      const cleanOptions = options.map((opt) => opt?.trim()).filter((opt) => opt)
-      if (cleanOptions.length < 2) {
-        return socket.emit("error", "Need at least 2 valid options.")
+      // Validate options structure: { text, isCorrect }
+      const validOptions = options.filter(opt => opt?.text?.trim() && typeof opt.isCorrect === 'boolean')
+      if (validOptions.length < 2) {
+        return socket.emit("error", "Need at least 2 valid options with text and correct/incorrect marking.")
       }
 
-      const pollCode = createPoll(socket.id, question.trim(), cleanOptions, duration || 60)
+      const pollCode = createPoll(socket.id, question.trim(), validOptions, duration || 60, expectedResponses)
       socket.join(pollCode)
       socket.emit("poll_created", { pollCode })
       console.log(`Poll ${pollCode} created by teacher ${socket.id}`)
@@ -61,7 +67,7 @@ io.on("connection", (socket) => {
     }
   })
 
-  socket.on("teacher_new_question", ({ pollCode, question, options, duration = 60 }) => {
+  socket.on("teacher_new_question", ({ pollCode, question, options, duration = 60, expectedResponses }) => {
     const poll = getPoll(pollCode)
     if (!poll) return socket.emit("error", "Poll not found")
 
@@ -73,21 +79,30 @@ io.on("connection", (socket) => {
       return socket.emit("error", "Invalid question data")
     }
 
-    const cleanOptions = options.map((opt) => opt?.trim()).filter((opt) => opt)
-    if (cleanOptions.length < 2) {
-      return socket.emit("error", "Need at least 2 valid options")
+    // Validate options structure: { text, isCorrect }
+    const validOptions = options.filter(opt => opt?.text?.trim() && typeof opt.isCorrect === 'boolean')
+    if (validOptions.length < 2) {
+      return socket.emit("error", "Need at least 2 valid options with text and correct/incorrect marking")
     }
 
-    const allAnswered = Object.keys(poll.answers).length === Object.keys(poll.students).length
-    if (poll.isActive && !allAnswered && Object.keys(poll.students).length > 0) {
-      return socket.emit("error", "Wait until all students answer or time runs out")
+    // Check if all expected responses received or all joined students answered
+    const currentAnswers = Object.keys(poll.answers).length
+    const joinedStudents = Object.keys(poll.students).length
+    const expected = poll.expectedResponses || joinedStudents
+    
+    const allExpectedAnswered = expected && currentAnswers >= expected
+    const allJoinedAnswered = joinedStudents > 0 && currentAnswers >= joinedStudents
+    
+    if (poll.isActive && !allExpectedAnswered && !allJoinedAnswered) {
+      return socket.emit("error", "Wait until all expected students answer or time runs out")
     }
 
     poll.question = question.trim()
-    poll.options = cleanOptions
+    poll.options = validOptions
     poll.answers = {}
     poll.startTime = Date.now()
     poll.duration = duration
+    poll.expectedResponses = expectedResponses || poll.expectedResponses
     poll.isActive = true
 
     // Send new_question to all clients in the room (including teacher)
@@ -137,26 +152,37 @@ io.on("connection", (socket) => {
   })
 
   socket.on("submit_answer", ({ pollCode, studentName, answer }) => {
+    console.log(`📝 Received answer submission:`, { pollCode, studentName, answer })
+    
     const poll = getPoll(pollCode)
-    if (!poll) return socket.emit("error", "Poll not found")
+    if (!poll) {
+      console.log(`❌ Poll not found: ${pollCode}`)
+      return socket.emit("error", "Poll not found")
+    }
 
-    if (!poll.isActive) return socket.emit("error", "Poll is not active")
+    if (!poll.isActive) {
+      console.log(`❌ Poll not active: ${pollCode}`)
+      return socket.emit("error", "Poll is not active")
+    }
 
     if (poll.students[socket.id] !== studentName) {
+      console.log(`❌ Unauthorized: ${studentName} not found in students`)
       return socket.emit("error", "Unauthorized")
     }
 
-    if (!poll.options.includes(answer)) {
+    if (!poll.options.some(option => option.text === answer)) {
+      console.log(`❌ Invalid answer: ${answer} not in options:`, poll.options.map(o => o.text))
       return socket.emit("error", "Invalid answer option")
     }
 
     submitAnswer(pollCode, studentName, answer)
+    console.log(`✅ Answer submitted successfully. Current answers:`, poll.answers)
 
     io.to(pollCode).emit("update_results", { answers: poll.answers })
-    console.log(`Student ${studentName} answered: ${answer}`)
+    console.log(`📡 Broadcasted results to poll ${pollCode}`)
   })
 
-  socket.on("time_up", ({ pollCode }) => {
+  socket.on("time_up", async ({ pollCode }) => {
     const poll = getPoll(pollCode)
     if (!poll) return
 
@@ -165,13 +191,26 @@ io.on("connection", (socket) => {
     poll.isActive = false
     io.to(pollCode).emit("update_results", { answers: poll.answers })
     console.log(`Time up for poll ${pollCode}`)
+    
+    // Save poll to history
+    try {
+      await savePollHistory(poll)
+      console.log(`✅ Poll ${pollCode} saved to history`)
+    } catch (error) {
+      console.error(`❌ Failed to save poll ${pollCode} to history:`, error)
+    }
   })
 
   socket.on("teacher_subscribe", ({ pollCode }) => {
+    console.log(`👨‍🏫 Teacher subscribing to poll: ${pollCode}`)
     const poll = getPoll(pollCode)
-    if (!poll || poll.teacherId !== socket.id) return
+    if (!poll || poll.teacherId !== socket.id) {
+      console.log(`❌ Teacher subscription failed: poll not found or unauthorized`)
+      return
+    }
 
     socket.join(pollCode)
+    console.log(`✅ Teacher joined poll room: ${pollCode}`)
     socket.emit("poll_state", {
       question: poll.question,
       options: poll.options,
@@ -179,8 +218,54 @@ io.on("connection", (socket) => {
       students: poll.students,
       duration: poll.duration,
       startTime: poll.startTime,
+      expectedResponses: poll.expectedResponses,
       isActive: poll.isActive,
+      messages: poll.messages || [],
     })
+    console.log(`📤 Sent poll state to teacher:`, { answers: poll.answers, students: poll.students })
+  })
+
+  // Chat: teacher -> everyone
+  socket.on("teacher_send_message", ({ pollCode, text }) => {
+    const poll = getPoll(pollCode)
+    if (!poll || poll.teacherId !== socket.id || !text?.trim()) return
+
+    const message = { id: Date.now().toString(), from: "teacher", name: "Teacher", text: text.trim(), ts: Date.now() }
+    poll.messages = poll.messages || []
+    poll.messages.push(message)
+    io.to(pollCode).emit("chat_message", { message })
+  })
+
+  // Chat: student -> teacher only
+  socket.on("student_send_message", ({ pollCode, text }) => {
+    console.log(`💬 Student sending message:`, { pollCode, text })
+    const poll = getPoll(pollCode)
+    if (!poll || !text?.trim()) {
+      console.log(`❌ Invalid poll or empty text`)
+      return
+    }
+
+    const studentName = poll.students[socket.id]
+    if (!studentName) {
+      console.log(`❌ Student not found in poll`)
+      return
+    }
+
+    const message = { id: Date.now().toString(), from: "student", name: studentName, text: text.trim(), ts: Date.now() }
+    poll.messages = poll.messages || []
+    poll.messages.push(message)
+    console.log(`✅ Message created:`, message)
+
+    // send to teacher socket and back to student
+    const teacherSocket = io.sockets.sockets.get(poll.teacherId)
+    if (teacherSocket) {
+      teacherSocket.emit("chat_message", { message })
+      console.log(`📤 Sent to teacher: ${poll.teacherId}`)
+    }
+    
+    // Also send back to the student so they can see their own message
+    socket.emit("chat_message", { message })
+    console.log(`📤 Sent back to student: ${socket.id}`)
   })
 
   socket.on("remove_student", ({ pollCode, studentId }) => {
@@ -221,6 +306,59 @@ app.get("/", (req, res) => {
     timestamp: new Date().toISOString(),
     connections: io.engine.clientsCount,
   })
+})
+
+// Poll History API Endpoints
+app.get("/api/poll-history/:teacherId", async (req, res) => {
+  try {
+    const { teacherId } = req.params
+    const { limit = 20 } = req.query
+    
+    const history = await getPollHistory(teacherId, parseInt(limit))
+    res.json({ success: true, data: history })
+  } catch (error) {
+    console.error("Error fetching poll history:", error)
+    res.status(500).json({ success: false, error: "Failed to fetch poll history" })
+  }
+})
+
+// Get all polls (for debugging)
+app.get("/api/poll-history-all", async (req, res) => {
+  try {
+    const { limit = 20 } = req.query
+    const history = await getPollHistory(null, parseInt(limit))
+    res.json({ success: true, data: history })
+  } catch (error) {
+    console.error("Error fetching all poll history:", error)
+    res.status(500).json({ success: false, error: "Failed to fetch poll history" })
+  }
+})
+
+app.get("/api/poll-details/:pollCode/:teacherId", async (req, res) => {
+  try {
+    const { pollCode, teacherId } = req.params
+    const poll = await getPollDetails(pollCode, teacherId)
+    
+    if (!poll) {
+      return res.status(404).json({ success: false, error: "Poll not found" })
+    }
+    
+    res.json({ success: true, data: poll })
+  } catch (error) {
+    console.error("Error fetching poll details:", error)
+    res.status(500).json({ success: false, error: "Failed to fetch poll details" })
+  }
+})
+
+app.get("/api/poll-stats/:teacherId", async (req, res) => {
+  try {
+    const { teacherId } = req.params
+    const stats = await getPollStats(teacherId)
+    res.json({ success: true, data: stats })
+  } catch (error) {
+    console.error("Error fetching poll stats:", error)
+    res.status(500).json({ success: false, error: "Failed to fetch poll stats" })
+  }
 })
 
 app.get("/api/poll/:code", (req, res) => {

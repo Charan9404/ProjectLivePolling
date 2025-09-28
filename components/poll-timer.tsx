@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Progress } from "@/components/ui/progress"
 import { Clock } from "lucide-react"
 
@@ -13,16 +13,23 @@ interface PollTimerProps {
 
 export default function PollTimer({ duration, startTime, onTimeUp, isActive }: PollTimerProps) {
   const [timeLeft, setTimeLeft] = useState(duration)
+  const persistedStartRef = useRef<number | undefined>(undefined)
 
   useEffect(() => {
     console.log("PollTimer effect:", { duration, startTime, isActive })
     
     if (!isActive) return
 
+    // Persist startTime once it becomes available, and never drop to undefined
+    if (startTime && !persistedStartRef.current) {
+      persistedStartRef.current = startTime
+    }
+
     const updateTimer = () => {
-      if (startTime) {
+      const effectiveStart = persistedStartRef.current || startTime
+      if (effectiveStart) {
         // Calculate remaining time based on server start time
-        const elapsed = (Date.now() - startTime) / 1000
+        const elapsed = (Date.now() - effectiveStart) / 1000
         const remaining = Math.max(0, duration - elapsed)
         
         console.log("Timer calculation:", { elapsed, remaining, startTime, duration })
@@ -46,12 +53,12 @@ export default function PollTimer({ duration, startTime, onTimeUp, isActive }: P
     }
 
     // Initial calculation
-    const initialTime = startTime ? updateTimer() : duration
+    const initialTime = persistedStartRef.current || startTime ? updateTimer() : timeLeft
     console.log("Initial time set to:", initialTime)
     setTimeLeft(initialTime)
 
     const interval = setInterval(() => {
-      if (startTime) {
+      if (persistedStartRef.current || startTime) {
         const newTime = updateTimer()
         setTimeLeft(newTime)
       } else {
