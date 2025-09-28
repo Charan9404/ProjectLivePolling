@@ -5,18 +5,8 @@ let MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/live-pol
 
 // Fix connection string for Railway deployment
 if (MONGODB_URI.includes('mongodb+srv://')) {
-  // Add SSL options for Railway if not already present
-  if (!MONGODB_URI.includes('ssl=')) {
-    MONGODB_URI = MONGODB_URI.includes('?') 
-      ? MONGODB_URI + '&ssl=true'
-      : MONGODB_URI + '?ssl=true'
-  }
-  // Add authSource if not already present
-  if (!MONGODB_URI.includes('authSource=')) {
-    MONGODB_URI = MONGODB_URI.includes('?') 
-      ? MONGODB_URI + '&authSource=admin'
-      : MONGODB_URI + '?authSource=admin'
-  }
+  // Remove any existing SSL parameters and use a clean connection string
+  MONGODB_URI = MONGODB_URI.split('?')[0] + '?retryWrites=true&w=majority'
 }
 const DB_NAME = 'live-polling'
 
@@ -43,10 +33,12 @@ async function connectToDatabase() {
     console.log('📍 MongoDB URI:', MONGODB_URI.replace(/\/\/.*@/, '//***:***@')) // Hide credentials
 
     client = new MongoClient(MONGODB_URI, {
-      serverSelectionTimeoutMS: 10000,
-      connectTimeoutMS: 15000,
-      maxPoolSize: 10,
+      serverSelectionTimeoutMS: 30000,
+      connectTimeoutMS: 30000,
+      maxPoolSize: 1,
       minPoolSize: 1,
+      maxIdleTimeMS: 30000,
+      socketTimeoutMS: 30000,
     })
     await client.connect()
     
