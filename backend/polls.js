@@ -13,6 +13,7 @@ function createPoll(teacherId, question, options, duration = 60, expectedRespons
     expectedResponses,
     isActive: true,
     messages: [], // [{ from: 'teacher'|'student', name, text, ts }]
+    questionHistory: [], // Array of previous questions with their results
   }
   return pollCode
 }
@@ -35,4 +36,26 @@ function removeStudent(pollCode, studentId) {
   }
 }
 
-module.exports = { polls, createPoll, getPoll, submitAnswer, removeStudent }
+function saveQuestionToHistory(pollCode) {
+  const poll = polls[pollCode]
+  if (!poll || !poll.question) return
+
+  // Save current question to history before starting new one
+  const questionEntry = {
+    question: poll.question,
+    options: poll.options,
+    answers: { ...poll.answers }, // Copy current answers
+    students: { ...poll.students }, // Copy current students
+    startTime: poll.startTime,
+    endTime: Date.now(),
+    duration: poll.duration,
+    expectedResponses: poll.expectedResponses,
+    totalResponses: Object.keys(poll.answers).length,
+    correctAnswers: poll.options.filter(opt => opt.isCorrect).map(opt => opt.text),
+    messages: [...(poll.messages || [])] // Copy messages
+  }
+
+  poll.questionHistory.push(questionEntry)
+}
+
+module.exports = { polls, createPoll, getPoll, submitAnswer, removeStudent, saveQuestionToHistory }

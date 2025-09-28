@@ -3,7 +3,7 @@ const express = require("express")
 const http = require("http")
 const { Server } = require("socket.io")
 const cors = require("cors")
-const { createPoll, getPoll, submitAnswer, removeStudent } = require("./polls")
+const { createPoll, getPoll, submitAnswer, removeStudent, saveQuestionToHistory } = require("./polls")
 const { connectToDatabase, savePollHistory, getPollHistory, getPollDetails, getPollStats } = require("./database")
 
 const app = express()
@@ -104,6 +104,11 @@ io.on("connection", (socket) => {
       return socket.emit("error", "Wait until all expected students answer or time runs out")
     }
 
+    // Save current question to history before starting new one
+    if (poll.question && poll.question.trim()) {
+      saveQuestionToHistory(pollCode)
+    }
+
     poll.question = question.trim()
     poll.options = validOptions
     poll.answers = {}
@@ -159,7 +164,7 @@ io.on("connection", (socket) => {
     console.log(`Student ${cleanName} joined poll ${pollCode}`)
   })
 
-  socket.on("submit_answer", ({ pollCode, studentName, answer }) => {
+  socket.on("submit_answer", async ({ pollCode, studentName, answer }) => {
     console.log(`Received answer submission:`, { pollCode, studentName, answer })
     
     const poll = getPoll(pollCode)
@@ -257,6 +262,7 @@ io.on("connection", (socket) => {
       expectedResponses: poll.expectedResponses,
       isActive: poll.isActive,
       messages: poll.messages || [],
+      questionHistory: poll.questionHistory || [],
     })
     console.log(`Sent poll state to teacher:`, { answers: poll.answers, students: poll.students })
   })

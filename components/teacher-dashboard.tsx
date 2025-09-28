@@ -31,6 +31,20 @@ interface PollState {
   isActive: boolean
   showResults: boolean
   messages?: ChatMessage[]
+  questionHistory?: QuestionHistoryEntry[]
+}
+
+interface QuestionHistoryEntry {
+  question: string
+  options: { text: string; isCorrect: boolean }[]
+  answers: Record<string, string>
+  students: Record<string, string>
+  startTime: number
+  endTime: number
+  duration: number
+  totalResponses: number
+  correctAnswers: string[]
+  messages?: ChatMessage[]
 }
 
 interface ChatMessage {
@@ -113,7 +127,7 @@ export default function TeacherDashboard({ onBack }: TeacherDashboardProps) {
       }))
     })
 
-    socket.on("poll_state", ({ question, options, answers, students, duration, startTime, expectedResponses, isActive, messages }) => {
+    socket.on("poll_state", ({ question, options, answers, students, duration, startTime, expectedResponses, isActive, messages, questionHistory }) => {
       setPollState((prev) => ({
         ...prev,
         question,
@@ -126,6 +140,7 @@ export default function TeacherDashboard({ onBack }: TeacherDashboardProps) {
         isActive,
         showResults: !isActive && Object.keys(answers || {}).length > 0,
         messages: messages || prev.messages || [],
+        questionHistory: questionHistory || [],
       }))
     })
 
@@ -318,6 +333,48 @@ export default function TeacherDashboard({ onBack }: TeacherDashboardProps) {
                         />
                       </div>
                     )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Question History */}
+              {pollState.questionHistory && pollState.questionHistory.length > 0 && (
+                <Card className="poll-card">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <History className="w-5 h-5" />
+                      Previous Questions
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {pollState.questionHistory.map((entry, index) => (
+                        <div key={index} className="p-4 bg-accent/20 rounded-lg border">
+                          <div className="flex items-start justify-between mb-3">
+                            <h4 className="font-medium text-lg">{entry.question}</h4>
+                            <div className="flex gap-2 text-sm text-muted-foreground">
+                              <span>{entry.totalResponses} responses</span>
+                              <span>•</span>
+                              <span>{Math.round((entry.endTime - entry.startTime) / 1000)}s</span>
+                            </div>
+                          </div>
+                          <div className="space-y-2 mb-3">
+                            {entry.options.map((option, optIndex) => (
+                              <div key={optIndex} className="flex items-center gap-2 p-2 bg-background/50 rounded">
+                                <span className="font-medium">{String.fromCharCode(65 + optIndex)}.</span>
+                                <span className="flex-1">{option.text}</span>
+                                {option.isCorrect && (
+                                  <Badge variant="default" className="text-xs">Correct</Badge>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            Correct answers: {entry.correctAnswers.join(", ")}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </CardContent>
                 </Card>
               )}

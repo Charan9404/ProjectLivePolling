@@ -14,6 +14,7 @@ function createPoll(teacherId, question, options, duration = 60) {
     startTime: Date.now(),
     duration,
     isActive: true,
+    questionHistory: [], // Array of previous questions with their results
   }
   return pollCode
 }
@@ -34,6 +35,26 @@ function removeStudent(pollCode, studentId) {
     delete poll.students[studentId]
     delete poll.answers[studentName]
   }
+}
+
+function saveQuestionToHistory(pollCode) {
+  const poll = polls[pollCode]
+  if (!poll || !poll.question) return
+
+  // Save current question to history before starting new one
+  const questionEntry = {
+    question: poll.question,
+    options: poll.options,
+    answers: { ...poll.answers }, // Copy current answers
+    students: { ...poll.students }, // Copy current students
+    startTime: poll.startTime,
+    endTime: Date.now(),
+    duration: poll.duration,
+    totalResponses: Object.keys(poll.answers).length,
+    correctAnswers: poll.options.filter(opt => opt.isCorrect).map(opt => opt.text),
+  }
+
+  poll.questionHistory.push(questionEntry)
 }
 
 export async function GET() {
@@ -67,6 +88,11 @@ export async function POST(req) {
         const allAnswered = Object.keys(poll.answers).length === Object.keys(poll.students).length
         if (poll.isActive && !allAnswered) {
           return socket.emit("error", "Wait until all students answer or time runs out")
+        }
+
+        // Save current question to history before starting new one
+        if (poll.question && poll.question.trim()) {
+          saveQuestionToHistory(pollCode)
         }
 
         poll.question = question
@@ -118,6 +144,7 @@ export async function POST(req) {
             answers: poll.answers,
             students: poll.students,
             duration: poll.duration,
+            questionHistory: poll.questionHistory || [],
           })
         }
       })
