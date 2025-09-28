@@ -16,7 +16,7 @@ export const getSocket = (): Socket => {
           ? window.location.origin
           : "http://localhost:5005"
 
-    console.log("[v0] Using Socket.IO URL:", serverUrl)
+    console.log("[LivePolling] Using Socket.IO URL:", serverUrl)
 
     socket = io(serverUrl, {
       path: "/socket.io",

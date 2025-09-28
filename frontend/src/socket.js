@@ -4,7 +4,7 @@ const fromCRA = process.env.REACT_APP_BACKEND_URL
 const fromNext = process.env.NEXT_PUBLIC_BACKEND_URL
 const SOCKET_URL = (fromCRA && fromCRA.trim()) || (fromNext && fromNext.trim()) || "http://localhost:5005"
 
-console.log("[v0] Using CRA Socket.IO URL:", SOCKET_URL)
+console.log("[LivePolling] Using Socket.IO URL:", SOCKET_URL)
 
 const socket = io(SOCKET_URL, {
   path: "/socket.io", // ensure consistent path
