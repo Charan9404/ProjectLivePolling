@@ -8,7 +8,12 @@ const { connectToDatabase, savePollHistory, getPollHistory, getPollDetails, getP
 
 const app = express()
 app.use(cors({
-  origin: ["http://localhost:3000", "http://localhost:3001"],
+  origin: [
+    "http://localhost:3000", 
+    "http://localhost:3001",
+    "https://project-live-polling.vercel.app",
+    "https://project-live-polling-m4tvy3ggg-charan9404s-projects.vercel.app"
+  ],
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"]
@@ -18,10 +23,12 @@ app.use(express.json())
 const server = http.createServer(app)
 const io = new Server(server, {
   cors: {
-    origin:
-      process.env.NODE_ENV === "production"
-        ? ["https://your-frontend-domain.com"]
-        : ["http://localhost:3000", "http://localhost:3001"],
+    origin: [
+      "http://localhost:3000", 
+      "http://localhost:3001",
+      "https://project-live-polling.vercel.app",
+      "https://project-live-polling-m4tvy3ggg-charan9404s-projects.vercel.app"
+    ],
     methods: ["GET", "POST"],
     credentials: true,
   },
