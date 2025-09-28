@@ -42,6 +42,7 @@ async function connectToDatabase() {
   } catch (error) {
     console.error('❌ MongoDB connection error:', error)
     console.log('⚠️  Poll history will be disabled until MongoDB is configured')
+    console.log('📝 App will continue to work without poll history storage')
     return null
   }
 }
