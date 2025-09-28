@@ -24,10 +24,6 @@ async function connectToDatabase() {
     }
 
     client = new MongoClient(MONGODB_URI, {
-      ssl: true,
-      sslValidate: false,
-      useUnifiedTopology: true,
-      useNewUrlParser: true,
       serverSelectionTimeoutMS: 5000,
       connectTimeoutMS: 10000,
     })
