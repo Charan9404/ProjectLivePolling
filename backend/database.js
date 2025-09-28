@@ -1,7 +1,7 @@
 const { MongoClient } = require('mongodb')
 
 // MongoDB connection string - replace with your actual connection string
-let MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/live-polling'
+let MONGODB_URI = process.env.MONGODB_URI || process.env.MONGO_URI || 'mongodb://localhost:27017/live-polling'
 
 // Fix connection string for Railway deployment
 if (MONGODB_URI.includes('mongodb+srv://')) {
