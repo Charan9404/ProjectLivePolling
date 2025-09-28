@@ -7,7 +7,7 @@ let socket: Socket | null = null
 export const getSocket = (): Socket => {
   if (!socket) {
     // Prefer explicit env override when available
-    const envUrl = typeof process !== "undefined" ? process.env.NEXT_PUBLIC_SOCKET_URL : undefined
+    const envUrl = typeof process !== "undefined" ? process.env.NEXT_PUBLIC_BACKEND_URL : undefined
 
     const serverUrl =
       envUrl && envUrl.trim().length > 0

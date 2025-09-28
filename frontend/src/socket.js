@@ -1,7 +1,7 @@
 import { io } from "socket.io-client"
 
 const fromCRA = process.env.REACT_APP_BACKEND_URL
-const fromNext = process.env.NEXT_PUBLIC_SOCKET_URL
+const fromNext = process.env.NEXT_PUBLIC_BACKEND_URL
 const SOCKET_URL = (fromCRA && fromCRA.trim()) || (fromNext && fromNext.trim()) || "http://localhost:5005"
 
 console.log("[v0] Using CRA Socket.IO URL:", SOCKET_URL)
