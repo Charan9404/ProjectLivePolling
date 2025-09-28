@@ -186,7 +186,28 @@ io.on("connection", (socket) => {
     submitAnswer(pollCode, studentName, answer)
     console.log(`✅ Answer submitted successfully. Current answers:`, poll.answers)
 
-    io.to(pollCode).emit("update_results", { answers: poll.answers })
+    // Check if all expected students have answered
+    const currentAnswers = Object.keys(poll.answers).length
+    const joinedStudents = Object.keys(poll.students).length
+    const expectedResponses = poll.expectedResponses || joinedStudents
+    
+    const allExpectedAnswered = expectedResponses && currentAnswers >= expectedResponses
+    const allJoinedAnswered = joinedStudents > 0 && currentAnswers >= joinedStudents
+    
+    if (poll.isActive && (allExpectedAnswered || allJoinedAnswered)) {
+      console.log(`🎯 All students have answered! Ending poll ${pollCode} automatically`)
+      
+      // End the poll automatically
+      poll.isActive = false
+      io.to(pollCode).emit("update_results", { answers: poll.answers })
+      io.to(pollCode).emit("time_up", { answers: poll.answers })
+      
+      // Save poll to history
+      await savePollToHistory(poll, pollCode)
+    } else {
+      io.to(pollCode).emit("update_results", { answers: poll.answers })
+    }
+    
     console.log(`📡 Broadcasted results to poll ${pollCode}`)
   })
 
