@@ -1,7 +1,12 @@
 const { MongoClient } = require('mongodb')
 
 // MongoDB connection string - replace with your actual connection string
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/live-polling'
+let MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/live-polling'
+
+// Fix connection string for Railway deployment
+if (MONGODB_URI.includes('mongodb+srv://') && !MONGODB_URI.includes('ssl=')) {
+  MONGODB_URI = MONGODB_URI.replace('?', '?ssl=true&') || MONGODB_URI + '?ssl=true'
+}
 const DB_NAME = 'live-polling'
 
 let client = null
@@ -24,6 +29,9 @@ async function connectToDatabase() {
     }
 
     client = new MongoClient(MONGODB_URI, {
+      tls: true,
+      tlsAllowInvalidCertificates: true,
+      tlsAllowInvalidHostnames: true,
       serverSelectionTimeoutMS: 5000,
       connectTimeoutMS: 10000,
     })
