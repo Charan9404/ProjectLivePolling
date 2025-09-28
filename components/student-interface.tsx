@@ -91,18 +91,32 @@ export default function StudentInterface({ onBack }: StudentInterfaceProps) {
     })
 
     socket.on("new_question", ({ question, options, duration, startTime, messages }) => {
-      setState((prev) => ({
-        ...prev,
-        currentQuestion: question,
-        options,
-        duration,
-        startTime,
-        hasSubmitted: false,
-        selectedAnswer: "",
-        results: null,
-        showTimer: true,
-        messages: messages || prev.messages || [],
-      }))
+      console.log("🆕 Student received new_question:", { question, options, duration, startTime, messages })
+      setState((prev) => {
+        console.log("🔄 Student state before new question:", { 
+          hasSubmitted: prev.hasSubmitted, 
+          selectedAnswer: prev.selectedAnswer, 
+          results: prev.results 
+        })
+        const newState = {
+          ...prev,
+          currentQuestion: question,
+          options,
+          duration,
+          startTime,
+          hasSubmitted: false,
+          selectedAnswer: "",
+          results: null,
+          showTimer: true,
+          messages: messages || prev.messages || [],
+        }
+        console.log("✅ Student state after new question:", { 
+          hasSubmitted: newState.hasSubmitted, 
+          selectedAnswer: newState.selectedAnswer, 
+          results: newState.results 
+        })
+        return newState
+      })
       toast({
         title: "New question!",
         description: "A new poll question has started",
