@@ -19,7 +19,7 @@ interface CreatePollFormProps {
 export default function CreatePollForm({ onCreatePoll, isLoading = false }: CreatePollFormProps) {
   const [question, setQuestion] = useState("")
   const [options, setOptions] = useState([{ text: "", isCorrect: false }, { text: "", isCorrect: false }])
-  const [duration, setDuration] = useState(60)
+  const [duration, setDuration] = useState(300)
   const [expectedResponses, setExpectedResponses] = useState<number | null>(null)
   const [diceClickCount, setDiceClickCount] = useState(0)
 

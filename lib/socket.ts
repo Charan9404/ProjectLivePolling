@@ -20,12 +20,14 @@ export const getSocket = (): Socket => {
 
     socket = io(serverUrl, {
       path: "/socket.io",
-      transports: ["websocket", "polling"],
+      transports: ["polling", "websocket"],
       timeout: 20000,
-      forceNew: false,
+      forceNew: true,
       reconnection: true,
       reconnectionDelay: 1000,
-      reconnectionAttempts: 5,
+      reconnectionAttempts: 10,
+      upgrade: true,
+      rememberUpgrade: false,
     })
 
     socket.on("connect", () => {
@@ -38,6 +40,24 @@ export const getSocket = (): Socket => {
 
     socket.on("connect_error", (error) => {
       console.error("Connection error:", error)
+      console.error("Error details:", {
+        message: error.message,
+        description: error.description,
+        context: error.context,
+        type: error.type
+      })
+    })
+
+    socket.on("reconnect", (attemptNumber) => {
+      console.log("Reconnected after", attemptNumber, "attempts")
+    })
+
+    socket.on("reconnect_error", (error) => {
+      console.error("Reconnection error:", error)
+    })
+
+    socket.on("reconnect_failed", () => {
+      console.error("Reconnection failed after all attempts")
     })
   }
   return socket

@@ -3,7 +3,7 @@ import { Server } from "socket.io"
 let io
 const polls = {}
 
-function createPoll(teacherId, question, options, duration = 60) {
+function createPoll(teacherId, question, options, duration = 300) {
   const pollCode = Math.floor(100000 + Math.random() * 900000).toString()
   polls[pollCode] = {
     teacherId,
@@ -81,7 +81,7 @@ export async function POST(req) {
         socket.emit("poll_created", { pollCode })
       })
 
-      socket.on("teacher_new_question", ({ pollCode, question, options, duration = 60 }) => {
+      socket.on("teacher_new_question", ({ pollCode, question, options, duration = 300 }) => {
         const poll = getPoll(pollCode)
         if (!poll) return socket.emit("error", "Poll not found")
 

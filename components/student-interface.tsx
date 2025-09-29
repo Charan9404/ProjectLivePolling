@@ -49,7 +49,7 @@ export default function StudentInterface({ onBack }: StudentInterfaceProps) {
     isJoined: false,
     currentQuestion: "",
     options: [],
-    duration: 60,
+    duration: 300,
     hasSubmitted: false,
     selectedAnswer: "",
     results: null,
@@ -93,8 +93,9 @@ export default function StudentInterface({ onBack }: StudentInterfaceProps) {
     })
 
     socket.on("new_question", ({ question, options, duration, startTime, messages }) => {
-      console.log("🎯 Student received new_question event:", { question, options, duration, startTime, messages })
-      console.log("🎯 Current student state before update:", state)
+      console.log("🎯🎯🎯 STUDENT RECEIVED NEW_QUESTION EVENT:", { question, options, duration, startTime, messages })
+      console.log("🎯 Student name:", state.name)
+      console.log("🎯 Poll code:", state.pollCode)
       setState((prev) => {
         console.log("Student state before new question:", { 
           hasSubmitted: prev.hasSubmitted, 
@@ -131,20 +132,33 @@ export default function StudentInterface({ onBack }: StudentInterfaceProps) {
     })
 
     socket.on("update_results", ({ answers }) => {
-      console.log("🎯🎯🎯 STUDENT RECEIVED UPDATE_RESULTS:", answers)
+      console.log("🎯🎯🎯 STUDENT RECEIVED UPDATE_RESULTS:", { answers })
       console.log("🎯 Student name:", state.name)
-      console.log("🎯 Poll code:", state.pollCode)
+      console.log("🎯 Current state before update:", {
+        currentQuestion: state.currentQuestion,
+        options: state.options,
+        selectedAnswer: state.selectedAnswer,
+        hasSubmitted: state.hasSubmitted
+      })
+      
+      // Validate the data before updating state
+      if (!answers || typeof answers !== 'object') {
+        console.error("🚨 Invalid answers data received:", answers)
+        return
+      }
+      
       setState((prev) => {
-        console.log("Student state before update_results:", { 
-          hasSubmitted: prev.hasSubmitted, 
-          selectedAnswer: prev.selectedAnswer, 
-          results: prev.results 
-        })
-        const newState = { ...prev, results: answers, showTimer: false }
-        console.log("Student state after update_results:", { 
-          hasSubmitted: newState.hasSubmitted, 
-          selectedAnswer: newState.selectedAnswer, 
-          results: newState.results 
+        const newState = { 
+          ...prev, 
+          results: answers, 
+          showTimer: false
+        }
+        console.log("🎯 New state after update:", {
+          currentQuestion: newState.currentQuestion,
+          options: newState.options,
+          selectedAnswer: newState.selectedAnswer,
+          hasSubmitted: newState.hasSubmitted,
+          results: newState.results
         })
         return newState
       })
@@ -156,11 +170,6 @@ export default function StudentInterface({ onBack }: StudentInterfaceProps) {
       setState((prev) => ({ ...prev, results: answers, showTimer: false }))
     })
 
-    // TEST: Handle test messages
-    socket.on("test_message", ({ message, answers }) => {
-      console.log("🎯🎯🎯 STUDENT RECEIVED TEST_MESSAGE:", message)
-      console.log("🎯 Test message answers:", answers)
-    })
 
     socket.on("chat_message", ({ message }) => {
       console.log("Student received chat message:", { 
@@ -228,7 +237,17 @@ export default function StudentInterface({ onBack }: StudentInterfaceProps) {
   }
 
   const submitAnswer = () => {
-    if (!state.selectedAnswer || state.hasSubmitted) return
+    console.log("🎯🎯🎯 SUBMIT_ANSWER CALLED:", {
+      selectedAnswer: state.selectedAnswer,
+      hasSubmitted: state.hasSubmitted,
+      studentName: state.name,
+      pollCode: state.pollCode
+    })
+
+    if (!state.selectedAnswer || state.hasSubmitted) {
+      console.log("❌ Cannot submit: selectedAnswer=", state.selectedAnswer, "hasSubmitted=", state.hasSubmitted)
+      return
+    }
 
     console.log("🎯 Student submitting answer:", {
       pollCode: state.pollCode,
@@ -249,13 +268,20 @@ export default function StudentInterface({ onBack }: StudentInterfaceProps) {
       return
     }
 
+    console.log("✅ Validation passed, emitting submit_answer event")
     setState((prev) => ({ ...prev, hasSubmitted: true }))
     const socket = getSocket()
+    
+    console.log("🎯 Socket connection:", socket.connected)
+    console.log("🎯 Emitting submit_answer event")
+    
     socket.emit("submit_answer", {
       pollCode: state.pollCode,
       studentName: state.name,
       answer: state.selectedAnswer,
     })
+
+    console.log("✅ submit_answer event emitted")
 
     toast({
       title: "Answer submitted!",
@@ -281,7 +307,7 @@ export default function StudentInterface({ onBack }: StudentInterfaceProps) {
       isJoined: false,
       currentQuestion: "",
       options: [],
-      duration: 60,
+      duration: 300,
       hasSubmitted: false,
       selectedAnswer: "",
       results: null,
@@ -421,7 +447,11 @@ export default function StudentInterface({ onBack }: StudentInterfaceProps) {
                       {state.options.map((option, index) => (
                         <button
                           key={index}
-                          onClick={() => setState((prev) => ({ ...prev, selectedAnswer: option.text }))}
+                          onClick={() => {
+                            console.log("🎯 Option clicked:", option.text, "current selectedAnswer:", state.selectedAnswer)
+                            setState((prev) => ({ ...prev, selectedAnswer: option.text }))
+                            console.log("✅ Option set in state")
+                          }}
                           className={`p-4 text-left rounded-lg border-2 transition-all ${
                             state.selectedAnswer === option.text
                               ? "border-primary bg-primary/10 text-primary"
@@ -446,7 +476,15 @@ export default function StudentInterface({ onBack }: StudentInterfaceProps) {
                     </div>
 
                     <Button
-                      onClick={submitAnswer}
+                      onClick={() => {
+                        console.log("🎯 Submit button clicked!")
+                        console.log("🎯 Current state:", {
+                          selectedAnswer: state.selectedAnswer,
+                          hasSubmitted: state.hasSubmitted,
+                          options: state.options
+                        })
+                        submitAnswer()
+                      }}
                       disabled={!state.selectedAnswer}
                       className="w-full gradient-bg text-white"
                     >

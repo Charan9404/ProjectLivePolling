@@ -21,7 +21,7 @@ interface NewQuestionFormProps {
 export default function NewQuestionForm({ onSubmit, onCancel, canStart }: NewQuestionFormProps) {
   const [question, setQuestion] = useState("")
   const [options, setOptions] = useState([{ text: "", isCorrect: false }, { text: "", isCorrect: false }])
-  const [duration, setDuration] = useState(60)
+  const [duration, setDuration] = useState(300)
   const [expectedResponses, setExpectedResponses] = useState<number | null>(null)
   const [diceClickCount, setDiceClickCount] = useState(0)
 

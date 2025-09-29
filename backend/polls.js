@@ -1,6 +1,6 @@
 const polls = {}
 
-function createPoll(teacherId, question, options, duration = 60, expectedResponses = null) {
+function createPoll(teacherId, question, options, duration = 300, expectedResponses = null) {
   const pollCode = Math.floor(100000 + Math.random() * 900000).toString()
   polls[pollCode] = {
     teacherId,
@@ -38,7 +38,10 @@ function removeStudent(pollCode, studentId) {
 
 function saveQuestionToHistory(pollCode) {
   const poll = polls[pollCode]
-  if (!poll || !poll.question) return
+  if (!poll || !poll.question) {
+    console.log(`Cannot save question to history: poll=${!!poll}, question=${poll?.question}`)
+    return
+  }
 
   // Save current question to history before starting new one
   const questionEntry = {
@@ -56,6 +59,8 @@ function saveQuestionToHistory(pollCode) {
   }
 
   poll.questionHistory.push(questionEntry)
+  console.log(`🎯 Saved question to history for poll ${pollCode}:`, questionEntry)
+  console.log(`🎯 Total questions in history:`, poll.questionHistory.length)
 }
 
 module.exports = { polls, createPoll, getPoll, submitAnswer, removeStudent, saveQuestionToHistory }

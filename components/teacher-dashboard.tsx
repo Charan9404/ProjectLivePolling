@@ -62,7 +62,7 @@ export default function TeacherDashboard({ onBack }: TeacherDashboardProps) {
     options: [],
     answers: {},
     students: {},
-    duration: 60,
+    duration: 300,
     isActive: false,
     showResults: false,
   })
@@ -228,7 +228,7 @@ export default function TeacherDashboard({ onBack }: TeacherDashboardProps) {
       options: [],
       answers: {},
       students: {},
-      duration: 60,
+      duration: 300,
       isActive: false,
       showResults: false,
     })
