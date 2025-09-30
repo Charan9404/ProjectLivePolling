@@ -116,60 +116,7 @@ Deploy the `backend/` folder to any Node.js hosting service (Heroku, Railway, et
 ### Frontend Deployment
 Deploy to Vercel, Netlify, or any Next.js compatible platform. Update the socket connection URL in `lib/socket.ts` to point to your deployed backend.
 
-## Assignment Requirements Checklist
-
-**Must-Have Requirements**
-- [x] Functional system with all core features working
-- [x] Teacher can create polls and students can answer them
-- [x] Both teacher and student can view poll results
-- [x] Real-time updates with Socket.IO
-- [x] Modern UI following design principles
-
-**Good to Have**
-- [x] Configurable poll time limit by teacher
-- [x] Option for teacher to remove a student
-- [x] Well-designed user interface with purple theme
-
-**Technical Stack**
-- [x] Frontend: React (Next.js)
-- [x] Backend: Express.js with Socket.io
-- [x] Real-time polling functionality
-- [x] Professional UI design
-
-## API Endpoints
-
-- `GET /` - Health check
-- `GET /api/poll/:code` - Get poll information (debugging)
-
-## Socket Events
-
-### Teacher Events
-- `teacher_create_poll` - Create a new poll
-- `teacher_new_question` - Start a new question
-- `teacher_subscribe` - Subscribe to poll updates
-- `remove_student` - Remove a student from poll
-- `time_up` - End current question
-
-### Student Events
-- `student_join` - Join a poll
-- `submit_answer` - Submit an answer
-
-### Broadcast Events
-- `poll_created` - Poll creation confirmation
-- `joined_poll` - Student successfully joined
-- `joined_poll_ack` - Student list update
-- `new_question` - New question started
-- `update_results` - Live results update
-- `error` - Error messages
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
 
 ## License
 
-This project is created for educational purposes as part of the Intervue.io SDE Intern assignment.
+This project is created for educational purposes as part of the Intern assignment.
